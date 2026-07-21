@@ -5,7 +5,9 @@ Data models used throughout the VideoText processing pipeline.
 """
 
 from dataclasses import dataclass, field
+from typing import List
 import numpy as np
+
 
 
 @dataclass
@@ -74,3 +76,30 @@ class CandidateFrame:
             for result in self.ocr_results
             if result.text.strip()
         )
+    
+@dataclass
+class SlideBuild:
+    """
+    Represents a single visible state of a logical slide.
+    """
+
+    candidate_frame: CandidateFrame
+
+
+@dataclass
+class Slide:
+    """
+    Represents one logical slide presented during the lecture.
+
+    A slide may contain multiple builds as bullets or graphics are
+    progressively revealed.
+    """
+
+    slide_number: int
+    start_time: float
+    end_time: float
+
+    builds: List[SlideBuild] = field(default_factory=list)
+
+    final_text: str = ""
+
