@@ -9,7 +9,6 @@ from typing import List
 import numpy as np
 
 
-
 @dataclass
 class OCRResult:
     """
@@ -50,6 +49,73 @@ class OCRResult:
         """Vertical center of the bounding box."""
         return (self.top + self.bottom) / 2
 
+from dataclasses import dataclass
+from enum import Enum
+
+
+class TextType(Enum):
+    UNKNOWN = "unknown"
+    TITLE = "title"
+    BODY = "body"
+    BULLET = "bullet"
+    SUB_BULLET = "sub_bullet"
+    NUMBERED = "numbered"
+    FOOTER = "footer"
+
+
+@dataclass
+class TextLine:
+    text: str
+
+    top: float
+    bottom: float
+    left: float
+    right: float
+
+    confidence: float
+
+    #
+    # Structure Detection
+    #
+    text_type: TextType = TextType.UNKNOWN
+
+    indent_level: int = 0
+
+    bullet_level: int = 0
+
+@dataclass
+class TextParagraph:
+    """
+    A logical paragraph reconstructed from one or more visual text lines.
+    """
+
+    text: str
+
+    lines: list[TextLine] = field(default_factory=list)
+
+    text_type: TextType = TextType.UNKNOWN
+
+    indent_level: int = 0
+
+    bullet_level: int = 0
+
+@dataclass
+class ComparisonResult:
+    """
+    Describes the relationship between two candidate frames.
+    """
+
+    shared_lines: list[str] = field(default_factory=list)
+
+    added_lines: list[str] = field(default_factory=list)
+
+    removed_lines: list[str] = field(default_factory=list)
+
+    similarity: float = 0.0
+
+    decision: bool = False
+
+    reason: str = ""
 
 @dataclass
 class CandidateFrame:
@@ -64,26 +130,75 @@ class CandidateFrame:
 
     ocr_results: list[OCRResult] = field(default_factory=list)
 
+    #
+    # Reconstructed visual lines
+    #
+    text_lines: list[TextLine] = field(default_factory=list)
+
+    #
+    # Reconstructed logical paragraphs
+    #
+    text_paragraphs: list[TextParagraph] = field(default_factory=list)
+
     is_duplicate: bool = False
 
     @property
     def combined_text(self) -> str:
         """
-        Returns all detected OCR text combined into a single string.
+        Returns text optimized for comparison algorithms.
         """
+
+        if self.text_lines:
+            return " ".join(
+                line.text.strip()
+                for line in self.text_lines
+                if line.text.strip()
+            )
+
         return " ".join(
             result.text.strip()
             for result in self.ocr_results
             if result.text.strip()
         )
-    
+
+    @property
+    def formatted_text(self) -> str:
+        """
+        Returns readable text preserving line breaks.
+        """
+
+        if self.text_lines:
+            return "\n".join(
+                line.text.strip()
+                for line in self.text_lines
+                if line.text.strip()
+            )
+
+        return "\n".join(
+            result.text.strip()
+            for result in self.ocr_results
+            if result.text.strip()
+        )
+
+
 @dataclass
 class SlideBuild:
     """
-    Represents a single visible state of a logical slide.
+    Represents one unique build state of a slide.
+
+    Multiple sampled frames may correspond to this build.
     """
 
-    candidate_frame: CandidateFrame
+    candidate_frames: list[CandidateFrame] = field(default_factory=list)
+
+    final_text: str = ""
+
+    @property
+    def representative_frame(self) -> CandidateFrame:
+        """
+        Return the first frame for reporting/export.
+        """
+        return self.candidate_frames[0]
 
 
 @dataclass
@@ -102,4 +217,3 @@ class Slide:
     builds: List[SlideBuild] = field(default_factory=list)
 
     final_text: str = ""
-

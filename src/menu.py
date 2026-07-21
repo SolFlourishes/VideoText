@@ -15,7 +15,7 @@ def select_start_stage():
 
     print()
     print("=" * 40)
-    print("VideoText Development Mode")
+    print("VideoText Development Mode. Where would you like to begin")
     print("=" * 40)
     print("1. Full Proceess")
     print("2. OCR")

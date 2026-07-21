@@ -6,6 +6,7 @@ Application entry point for VideoText.
 
 from reading_order import reconstruct_reading_order
 from slide_consolidator import consolidate_slides
+from slide_debug import print_slide_report
 
 from video_reader import open_video
 from frame_analyzer import analyze_video
@@ -25,6 +26,36 @@ from cache_manager import (
 )
 
 from menu import select_start_stage
+
+
+def print_summary(candidate_frames):
+    """
+    Print processing summary.
+    """
+
+    print("\nProcessing complete.")
+
+    print(f"\nSelected {len(candidate_frames)} candidate frames.")
+
+    values = [frame.difference_score for frame in candidate_frames]
+
+    print(f"Minimum Difference : {min(values):.2f}")
+    print(f"Maximum Difference : {max(values):.2f}")
+    print(f"Average Difference : {sum(values) / len(values):.2f}")
+
+    print("\nTop 10 Largest Changes")
+
+    top_changes = sorted(
+        candidate_frames,
+        key=lambda frame: frame.difference_score,
+        reverse=True,
+    )[:10]
+
+    for frame in top_changes:
+        print(
+            f"Frame {frame.frame_number:5d}: "
+            f"{frame.difference_score:.2f}"
+        )
 
 
 def main():
@@ -61,11 +92,6 @@ def main():
             CANDIDATE_CACHE,
         )
 
-    #
-    # ----------------------------
-    # Stage 2 - OCR
-    # ----------------------------
-    #
     elif start_stage == "ocr":
 
         print("Loading cached candidate frames...")
@@ -74,11 +100,6 @@ def main():
             CANDIDATE_CACHE,
         )
 
-    #
-    # ----------------------------
-    # Stage 3 - Reading Order
-    # ----------------------------
-    #
     elif start_stage == "reading_order":
 
         print("Loading cached OCR results...")
@@ -87,11 +108,6 @@ def main():
             OCR_CACHE,
         )
 
-    #
-    # ----------------------------
-    # Stage 4 - Slide Consolidation
-    # ----------------------------
-    #
     elif start_stage == "slide_consolidation":
 
         print("Loading cached reading order...")
@@ -100,21 +116,24 @@ def main():
             READING_ORDER_CACHE,
         )
 
-        slides = consolidate_slides(candidate_frames)
+    elif start_stage == "export":
 
-        print(f"\nCreated {len(slides)} slides.")
-
+        print("Export is not implemented yet.")
         return
 
     else:
 
-        print(f"Stage '{start_stage}' is not implemented yet.")
+        print(f"Unknown stage: {start_stage}")
         return
 
     #
+    # ----------------------------
     # OCR
+    # ----------------------------
     #
-    if start_stage != "reading_order":
+    if start_stage in ("video", "ocr"):
+
+        print("\n=== OCR ===")
 
         candidate_frames = perform_ocr(candidate_frames)
 
@@ -124,49 +143,49 @@ def main():
         )
 
     #
+    # ----------------------------
     # Reading Order
+    # ----------------------------
     #
-    candidate_frames = reconstruct_reading_order(
-        candidate_frames,
-    )
+    if start_stage in ("video", "ocr", "reading_order"):
 
-    save_cache(
-        candidate_frames,
-        READING_ORDER_CACHE,
-    )
+        print("\n=== Reading Order ===")
+
+        candidate_frames = reconstruct_reading_order(
+            candidate_frames,
+        )
+
+        save_cache(
+            candidate_frames,
+            READING_ORDER_CACHE,
+        )
 
     #
-    # Release video.
+    # ----------------------------
+    # Slide Consolidation
+    # ----------------------------
+    #
+    print("\n=== Slide Consolidation ===")
+
+    slides = consolidate_slides(candidate_frames)
+
+    print_slide_report(slides)
+
+    #
+    # ----------------------------
+    # Placeholder Export
+    # ----------------------------
+    #
+    print("\n=== Export ===")
+    print("Export not implemented yet.")
+
+    #
+    # Cleanup
     #
     if video is not None:
         video.release()
 
-    print("\nProcessing complete.")
-
-    #
-    # Summary
-    #
-    print(f"\nSelected {len(candidate_frames)} candidate frames.")
-
-    values = [frame.difference_score for frame in candidate_frames]
-
-    print(f"Minimum Difference : {min(values):.2f}")
-    print(f"Maximum Difference : {max(values):.2f}")
-    print(f"Average Difference : {sum(values) / len(values):.2f}")
-
-    print("\nTop 10 Largest Changes")
-
-    top_changes = sorted(
-        candidate_frames,
-        key=lambda frame: frame.difference_score,
-        reverse=True,
-    )[:10]
-
-    for frame in top_changes:
-        print(
-            f"Frame {frame.frame_number:5d}: "
-            f"{frame.difference_score:.2f}"
-        )
+    print_summary(candidate_frames)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,1331 @@
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'nTips'
+    top=396.0 bottom=562.0 height=166.0 center=479.0
+
+Average Line Height : 166.0
+Paragraph Threshold : 124.5
+
+NEW TITLE: 'nTips'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'lization Tips'
+    top=377.0 bottom=554.0 height=177.0 center=465.5
+
+Average Line Height : 177.0
+Paragraph Threshold : 132.8
+
+NEW TITLE: 'lization Tips'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Mobilization Tips'
+    top=378.0 bottom=528.0 height=150.0 center=453.0
+
+Average Line Height : 150.0
+Paragraph Threshold : 112.5
+
+NEW TITLE: 'Mobilization Tips'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'ritual Mobilization Tips'
+    top=357.0 bottom=550.0 height=193.0 center=453.5
+
+Average Line Height : 193.0
+Paragraph Threshold : 144.8
+
+NEW TITLE: 'ritual Mobilization Tips'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Mobilization Tips'
+    top=377.0 bottom=572.0 height=195.0 center=474.5
+
+Average Line Height : 195.0
+Paragraph Threshold : 146.2
+
+NEW TITLE: 'Spiritual Mobilization Tips'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Mobilization n Tips'
+    top=391.0 bottom=552.0 height=161.0 center=471.5
+
+Average Line Height : 161.0
+Paragraph Threshold : 120.8
+
+NEW TITLE: 'Spiritual Mobilization n Tips'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Mobilization'
+    top=447.0 bottom=627.0 height=180.0 center=537.0
+
+Average Line Height : 180.0
+Paragraph Threshold : 135.0
+
+NEW TITLE: 'Spiritual Mobilization'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Mobilizatic'
+    top=447.0 bottom=618.0 height=171.0 center=532.5
+
+Average Line Height : 171.0
+Paragraph Threshold : 128.2
+
+NEW TITLE: 'Spiritual Mobilizatic'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Mobiliizo'
+    top=425.0 bottom=590.0 height=165.0 center=507.5
+
+Average Line Height : 165.0
+Paragraph Threshold : 123.8
+
+NEW TITLE: 'Spiritual Mobiliizo'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Resource'
+    top=212.0 bottom=295.0 height=83.0 center=253.5
+'ilizationTips'
+    top=312.0 bottom=419.0 height=107.0 center=365.5
+'Spiritual Mobili'
+    top=412.0 bottom=576.0 height=164.0 center=494.0
+
+Average Line Height : 118.0
+Paragraph Threshold : 88.5
+
+NEW TITLE: 'Resource'
+
+Gap = 17.0
+Previous : 'Resource'
+Current  : 'ilizationTips'
+>>> CONTINUE PARAGRAPH
+
+Gap = -7.0
+Previous : 'ilizationTips'
+Current  : 'Spiritual Mobili'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'itual Resource'
+    top=186.0 bottom=272.0 height=86.0 center=229.0
+'MobilizationTips'
+    top=277.0 bottom=393.0 height=116.0 center=335.0
+'Spiritual Mok'
+    top=377.0 bottom=538.0 height=161.0 center=457.5
+
+Average Line Height : 121.0
+Paragraph Threshold : 90.8
+
+NEW TITLE: 'itual Resource'
+
+Gap = 5.0
+Previous : 'itual Resource'
+Current  : 'MobilizationTips'
+>>> CONTINUE PARAGRAPH
+
+Gap = -16.0
+Previous : 'MobilizationTips'
+Current  : 'Spiritual Mok'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Resource'
+    top=178.0 bottom=293.0 height=115.0 center=235.5
+'MobilizationTips'
+    top=285.0 bottom=399.0 height=114.0 center=342.0
+'Spiritual M'
+    top=393.0 bottom=563.0 height=170.0 center=478.0
+
+Average Line Height : 133.0
+Paragraph Threshold : 99.8
+
+NEW TITLE: 'Spiritual Resource'
+
+Gap = -8.0
+Previous : 'Spiritual Resource'
+Current  : 'MobilizationTips'
+>>> CONTINUE PARAGRAPH
+
+Gap = -6.0
+Previous : 'MobilizationTips'
+Current  : 'Spiritual M'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Resource'
+    top=201.0 bottom=308.0 height=107.0 center=254.5
+'Mobilization Tips'
+    top=317.0 bottom=420.0 height=103.0 center=368.5
+'Spiritual'
+    top=412.0 bottom=572.0 height=160.0 center=492.0
+
+Average Line Height : 123.3
+Paragraph Threshold : 92.5
+
+NEW TITLE: 'Spiritual Resource'
+
+Gap = 9.0
+Previous : 'Spiritual Resource'
+Current  : 'Mobilization Tips'
+>>> CONTINUE PARAGRAPH
+
+Gap = -8.0
+Previous : 'Mobilization Tips'
+Current  : 'Spiritual'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Resource'
+    top=199.0 bottom=299.0 height=100.0 center=249.0
+'Mobilization Tips'
+    top=310.0 bottom=405.0 height=95.0 center=357.5
+'Spiritu'
+    top=409.0 bottom=579.0 height=170.0 center=494.0
+
+Average Line Height : 121.7
+Paragraph Threshold : 91.2
+
+NEW TITLE: 'Spiritual Resource'
+
+Gap = 11.0
+Previous : 'Spiritual Resource'
+Current  : 'Mobilization Tips'
+>>> CONTINUE PARAGRAPH
+
+Gap = 4.0
+Previous : 'Mobilization Tips'
+Current  : 'Spiritu'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Resource'
+    top=213.0 bottom=313.0 height=100.0 center=263.0
+'Mobilization Tips'
+    top=319.0 bottom=413.0 height=94.0 center=366.0
+'C'
+    top=484.0 bottom=554.0 height=70.0 center=519.0
+
+Average Line Height : 88.0
+Paragraph Threshold : 66.0
+
+NEW TITLE: 'Spiritual Resource'
+
+Gap = 6.0
+Previous : 'Spiritual Resource'
+Current  : 'Mobilization Tips'
+>>> CONTINUE PARAGRAPH
+
+Gap = 71.0
+Previous : 'Mobilization Tips'
+Current  : 'C'
+>>> NEW PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Resource'
+    top=241.0 bottom=342.0 height=101.0 center=291.5
+'Mobilization Tips'
+    top=337.0 bottom=431.0 height=94.0 center=384.0
+
+Average Line Height : 97.5
+Paragraph Threshold : 73.1
+
+NEW TITLE: 'Spiritual Resource'
+
+Gap = -5.0
+Previous : 'Spiritual Resource'
+Current  : 'Mobilization Tips'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Resource'
+    top=219.0 bottom=330.0 height=111.0 center=274.5
+'Mobilization Tips'
+    top=318.0 bottom=415.0 height=97.0 center=366.5
+
+Average Line Height : 104.0
+Paragraph Threshold : 78.0
+
+NEW TITLE: 'Spiritual Resource'
+
+Gap = -12.0
+Previous : 'Spiritual Resource'
+Current  : 'Mobilization Tips'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Resource'
+    top=222.0 bottom=340.0 height=118.0 center=281.0
+'Mobilization Tips'
+    top=320.0 bottom=425.0 height=105.0 center=372.5
+
+Average Line Height : 111.5
+Paragraph Threshold : 83.6
+
+NEW TITLE: 'Spiritual Resource'
+
+Gap = -20.0
+Previous : 'Spiritual Resource'
+Current  : 'Mobilization Tips'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Resource'
+    top=288.0 bottom=367.0 height=79.0 center=327.5
+'Mobilization Tips'
+    top=378.0 bottom=465.0 height=87.0 center=421.5
+
+Average Line Height : 83.0
+Paragraph Threshold : 62.2
+
+NEW TITLE: 'Spiritual Resource'
+
+Gap = 11.0
+Previous : 'Spiritual Resource'
+Current  : 'Mobilization Tips'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'Spiritual Resource'
+    top=286.0 bottom=364.0 height=78.0 center=325.0
+'Mobilization Tips'
+    top=375.0 bottom=461.0 height=86.0 center=418.0
+'Michelle Pearce, PhD'
+    top=851.0 bottom=917.0 height=66.0 center=884.0
+'Professor, Graduate School'
+    top=915.0 bottom=955.0 height=40.0 center=935.0
+'University of Maryland, Baltimore'
+    top=958.0 bottom=1006.0 height=48.0 center=982.0
+
+Average Line Height : 63.6
+Paragraph Threshold : 47.7
+
+NEW TITLE: 'Spiritual Resource'
+
+Gap = 11.0
+Previous : 'Spiritual Resource'
+Current  : 'Mobilization Tips'
+>>> CONTINUE PARAGRAPH
+
+Gap = 390.0
+Previous : 'Mobilization Tips'
+Current  : 'Michelle Pearce, PhD'
+>>> NEW PARAGRAPH
+
+Gap = -2.0
+Previous : 'Michelle Pearce, PhD'
+Current  : 'Professor, Graduate School'
+>>> CONTINUE PARAGRAPH
+
+Gap = 3.0
+Previous : 'Professor, Graduate School'
+Current  : 'University of Maryland, Baltimore'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'1. Be Specific'
+    top=379.0 bottom=515.0 height=136.0 center=447.0
+
+Average Line Height : 136.0
+Paragraph Threshold : 102.0
+
+NEW NUMBERED: '1. Be Specific'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'1. Be Specific'
+    top=380.0 bottom=514.0 height=134.0 center=447.0
+
+Average Line Height : 134.0
+Paragraph Threshold : 100.5
+
+NEW NUMBERED: '1. Be Specific'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'1. Be Specific'
+    top=380.0 bottom=514.0 height=134.0 center=447.0
+
+Average Line Height : 134.0
+Paragraph Threshold : 100.5
+
+NEW NUMBERED: '1. Be Specific'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'1. Be Specific'
+    top=380.0 bottom=515.0 height=135.0 center=447.5
+
+Average Line Height : 135.0
+Paragraph Threshold : 101.2
+
+NEW NUMBERED: '1. Be Specific'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'EXAMPLES'
+    top=220.0 bottom=312.0 height=92.0 center=266.0
+'Seek spiritual guidance'
+    top=354.0 bottom=446.0 height=92.0 center=400.0
+'Talk to your religious s leader'
+    top=464.0 bottom=552.0 height=88.0 center=508.0
+
+Average Line Height : 90.7
+Paragraph Threshold : 68.0
+
+NEW TITLE: 'EXAMPLES'
+
+Gap = 42.0
+Previous : 'EXAMPLES'
+Current  : 'Seek spiritual guidance'
+>>> CONTINUE PARAGRAPH
+
+Gap = 18.0
+Previous : 'Seek spiritual guidance'
+Current  : 'Talk to your religious s leader'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'1. Be Specific'
+    top=284.0 bottom=375.0 height=91.0 center=329.5
+
+Average Line Height : 91.0
+Paragraph Threshold : 68.2
+
+NEW NUMBERED: '1. Be Specific'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'1. Be Specific'
+    top=275.0 bottom=369.0 height=94.0 center=322.0
+
+Average Line Height : 94.0
+Paragraph Threshold : 70.5
+
+NEW NUMBERED: '1. Be Specific'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'2.Think Functionally'
+    top=277.0 bottom=378.0 height=101.0 center=327.5
+
+Average Line Height : 101.0
+Paragraph Threshold : 75.8
+
+NEW NUMBERED: '2.Think Functionally'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'2.Think Functionally'
+    top=273.0 bottom=371.0 height=98.0 center=322.0
+
+Average Line Height : 98.0
+Paragraph Threshold : 73.5
+
+NEW NUMBERED: '2.Think Functionally'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'2.Think Functionally'
+    top=334.0 bottom=444.0 height=110.0 center=389.0
+
+Average Line Height : 110.0
+Paragraph Threshold : 82.5
+
+NEW NUMBERED: '2.Think Functionally'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'CONSIDER'
+    top=219.0 bottom=314.0 height=95.0 center=266.5
+
+Average Line Height : 95.0
+Paragraph Threshold : 71.2
+
+NEW TITLE: 'CONSIDER'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'CONSIDER'
+    top=225.0 bottom=319.0 height=94.0 center=272.0
+'What is client's issue?'
+    top=375.0 bottom=447.0 height=72.0 center=411.0
+'How will resource help oto address that issue?'
+    top=477.0 bottom=564.0 height=87.0 center=520.5
+
+Average Line Height : 84.3
+Paragraph Threshold : 63.2
+
+NEW TITLE: 'CONSIDER'
+
+Gap = 56.0
+Previous : 'CONSIDER'
+Current  : 'What is client's issue?'
+>>> CONTINUE PARAGRAPH
+
+Gap = 30.0
+Previous : 'What is client's issue?'
+Current  : 'How will resource help oto address that issue?'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'CONSIDER'
+    top=225.0 bottom=318.0 height=93.0 center=271.5
+'What is client's issue?'
+    top=375.0 bottom=447.0 height=72.0 center=411.0
+'How will resource help oto address that issue?'
+    top=477.0 bottom=564.0 height=87.0 center=520.5
+
+Average Line Height : 84.0
+Paragraph Threshold : 63.0
+
+NEW TITLE: 'CONSIDER'
+
+Gap = 57.0
+Previous : 'CONSIDER'
+Current  : 'What is client's issue?'
+>>> CONTINUE PARAGRAPH
+
+Gap = 30.0
+Previous : 'What is client's issue?'
+Current  : 'How will resource help oto address that issue?'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'3. Be client-centered'
+    top=388.0 bottom=496.0 height=108.0 center=442.0
+
+Average Line Height : 108.0
+Paragraph Threshold : 81.0
+
+NEW NUMBERED: '3. Be client-centered'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'3. Be client-centered'
+    top=388.0 bottom=496.0 height=108.0 center=442.0
+
+Average Line Height : 108.0
+Paragraph Threshold : 81.0
+
+NEW NUMBERED: '3. Be client-centered'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'3. Be client-centered'
+    top=278.0 bottom=358.0 height=80.0 center=318.0
+
+Average Line Height : 80.0
+Paragraph Threshold : 60.0
+
+NEW NUMBERED: '3. Be client-centered'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'3. Be client-centered'
+    top=277.0 bottom=356.0 height=79.0 center=316.5
+
+Average Line Height : 79.0
+Paragraph Threshold : 59.2
+
+NEW NUMBERED: '3. Be client-centered'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'3. Be client-centered'
+    top=281.0 bottom=364.0 height=83.0 center=322.5
+
+Average Line Height : 83.0
+Paragraph Threshold : 62.2
+
+NEW NUMBERED: '3. Be client-centered'
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'4. Make suggestions basec'
+    top=268.0 bottom=350.0 height=82.0 center=309.0
+'on positive personal'
+    top=360.0 bottom=447.0 height=87.0 center=403.5
+'(client) experience'
+    top=456.0 bottom=537.0 height=81.0 center=496.5
+'and/or empirical support'
+    top=550.0 bottom=629.0 height=79.0 center=589.5
+
+Average Line Height : 82.2
+Paragraph Threshold : 61.7
+
+NEW NUMBERED: '4. Make suggestions basec'
+
+Gap = 10.0
+Previous : '4. Make suggestions basec'
+Current  : 'on positive personal'
+>>> CONTINUE PARAGRAPH
+
+Gap = 9.0
+Previous : 'on positive personal'
+Current  : '(client) experience'
+>>> CONTINUE PARAGRAPH
+
+Gap = 13.0
+Previous : '(client) experience'
+Current  : 'and/or empirical support'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'4. Make suggestions s basec'
+    top=275.0 bottom=356.0 height=81.0 center=315.5
+'on positive personal'
+    top=368.0 bottom=453.0 height=85.0 center=410.5
+'(client) experience'
+    top=461.0 bottom=543.0 height=82.0 center=502.0
+'and/or empirical support'
+    top=558.0 bottom=637.0 height=79.0 center=597.5
+
+Average Line Height : 81.8
+Paragraph Threshold : 61.3
+
+NEW NUMBERED: '4. Make suggestions s basec'
+
+Gap = 12.0
+Previous : '4. Make suggestions s basec'
+Current  : 'on positive personal'
+>>> CONTINUE PARAGRAPH
+
+Gap = 8.0
+Previous : 'on positive personal'
+Current  : '(client) experience'
+>>> CONTINUE PARAGRAPH
+
+Gap = 15.0
+Previous : '(client) experience'
+Current  : 'and/or empirical support'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'4. Make suggestions based'
+    top=271.0 bottom=359.0 height=88.0 center=315.0
+'on positive personal'
+    top=370.0 bottom=453.0 height=83.0 center=411.5
+'(client) experience'
+    top=462.0 bottom=543.0 height=81.0 center=502.5
+'and/or empirical support'
+    top=558.0 bottom=637.0 height=79.0 center=597.5
+
+Average Line Height : 82.8
+Paragraph Threshold : 62.1
+
+NEW NUMBERED: '4. Make suggestions based'
+
+Gap = 11.0
+Previous : '4. Make suggestions based'
+Current  : 'on positive personal'
+>>> CONTINUE PARAGRAPH
+
+Gap = 9.0
+Previous : 'on positive personal'
+Current  : '(client) experience'
+>>> CONTINUE PARAGRAPH
+
+Gap = 15.0
+Previous : '(client) experience'
+Current  : 'and/or empirical support'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'4. Make suggestions based'
+    top=270.0 bottom=364.0 height=94.0 center=317.0
+'on positive personal'
+    top=376.0 bottom=470.0 height=94.0 center=423.0
+'(client) experience'
+    top=482.0 bottom=577.0 height=95.0 center=529.5
+'and/or empirical support'
+    top=592.0 bottom=682.0 height=90.0 center=637.0
+
+Average Line Height : 93.2
+Paragraph Threshold : 69.9
+
+NEW NUMBERED: '4. Make suggestions based'
+
+Gap = 12.0
+Previous : '4. Make suggestions based'
+Current  : 'on positive personal'
+>>> CONTINUE PARAGRAPH
+
+Gap = 12.0
+Previous : 'on positive personal'
+Current  : '(client) experience'
+>>> CONTINUE PARAGRAPH
+
+Gap = 15.0
+Previous : '(client) experience'
+Current  : 'and/or empirical support'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'4. Make suggestions based'
+    top=260.0 bottom=372.0 height=112.0 center=316.0
+'on positive personal'
+    top=387.0 bottom=502.0 height=115.0 center=444.5
+'(client) experience'
+    top=517.0 bottom=631.0 height=114.0 center=574.0
+'and/or empirical support'
+    top=643.0 bottom=762.0 height=119.0 center=702.5
+
+Average Line Height : 115.0
+Paragraph Threshold : 86.2
+
+NEW NUMBERED: '4. Make suggestions based'
+
+Gap = 15.0
+Previous : '4. Make suggestions based'
+Current  : 'on positive personal'
+>>> CONTINUE PARAGRAPH
+
+Gap = 15.0
+Previous : 'on positive personal'
+Current  : '(client) experience'
+>>> CONTINUE PARAGRAPH
+
+Gap = 12.0
+Previous : '(client) experience'
+Current  : 'and/or empirical support'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'4. Make suggestions based'
+    top=262.0 bottom=372.0 height=110.0 center=317.0
+'on positive personal'
+    top=387.0 bottom=502.0 height=115.0 center=444.5
+'(client) experience'
+    top=517.0 bottom=631.0 height=114.0 center=574.0
+'and/or empirical support'
+    top=642.0 bottom=762.0 height=120.0 center=702.0
+
+Average Line Height : 114.8
+Paragraph Threshold : 86.1
+
+NEW NUMBERED: '4. Make suggestions based'
+
+Gap = 15.0
+Previous : '4. Make suggestions based'
+Current  : 'on positive personal'
+>>> CONTINUE PARAGRAPH
+
+Gap = 15.0
+Previous : 'on positive personal'
+Current  : '(client) experience'
+>>> CONTINUE PARAGRAPH
+
+Gap = 11.0
+Previous : '(client) experience'
+Current  : 'and/or empirical support'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'4. Make suggestions based'
+    top=262.0 bottom=372.0 height=110.0 center=317.0
+'on positive personal'
+    top=387.0 bottom=502.0 height=115.0 center=444.5
+'(client) experience'
+    top=517.0 bottom=631.0 height=114.0 center=574.0
+'and/or empirical support'
+    top=642.0 bottom=762.0 height=120.0 center=702.0
+
+Average Line Height : 114.8
+Paragraph Threshold : 86.1
+
+NEW NUMBERED: '4. Make suggestions based'
+
+Gap = 15.0
+Previous : '4. Make suggestions based'
+Current  : 'on positive personal'
+>>> CONTINUE PARAGRAPH
+
+Gap = 15.0
+Previous : 'on positive personal'
+Current  : '(client) experience'
+>>> CONTINUE PARAGRAPH
+
+Gap = 11.0
+Previous : '(client) experience'
+Current  : 'and/or empirical support'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'5. Encourage practice'
+    top=268.0 bottom=382.0 height=114.0 center=325.0
+'and discipline to'
+    top=398.0 bottom=511.0 height=113.0 center=454.5
+'benefit from resources'
+    top=526.0 bottom=621.0 height=95.0 center=573.5
+
+Average Line Height : 107.3
+Paragraph Threshold : 80.5
+
+NEW NUMBERED: '5. Encourage practice'
+
+Gap = 16.0
+Previous : '5. Encourage practice'
+Current  : 'and discipline to'
+>>> CONTINUE PARAGRAPH
+
+Gap = 15.0
+Previous : 'and discipline to'
+Current  : 'benefit from resources'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'5. Encourage epractice'
+    top=278.0 bottom=363.0 height=85.0 center=320.5
+'and discipline to'
+    top=372.0 bottom=451.0 height=79.0 center=411.5
+'benefit from resources'
+    top=462.0 bottom=529.0 height=67.0 center=495.5
+
+Average Line Height : 77.0
+Paragraph Threshold : 57.8
+
+NEW NUMBERED: '5. Encourage epractice'
+
+Gap = 9.0
+Previous : '5. Encourage epractice'
+Current  : 'and discipline to'
+>>> CONTINUE PARAGRAPH
+
+Gap = 11.0
+Previous : 'and discipline to'
+Current  : 'benefit from resources'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'5. Encourage practice'
+    top=285.0 bottom=373.0 height=88.0 center=329.0
+'and discipline to'
+    top=380.0 bottom=457.0 height=77.0 center=418.5
+'benefit from resources'
+    top=469.0 bottom=536.0 height=67.0 center=502.5
+
+Average Line Height : 77.3
+Paragraph Threshold : 58.0
+
+NEW NUMBERED: '5. Encourage practice'
+
+Gap = 7.0
+Previous : '5. Encourage practice'
+Current  : 'and discipline to'
+>>> CONTINUE PARAGRAPH
+
+Gap = 12.0
+Previous : 'and discipline to'
+Current  : 'benefit from resources'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'5. Encourage e practice'
+    top=292.0 bottom=373.0 height=81.0 center=332.5
+'and discipline to'
+    top=385.0 bottom=462.0 height=77.0 center=423.5
+'benefit from resources'
+    top=475.0 bottom=541.0 height=66.0 center=508.0
+
+Average Line Height : 74.7
+Paragraph Threshold : 56.0
+
+NEW NUMBERED: '5. Encourage e practice'
+
+Gap = 12.0
+Previous : '5. Encourage e practice'
+Current  : 'and discipline to'
+>>> CONTINUE PARAGRAPH
+
+Gap = 13.0
+Previous : 'and discipline to'
+Current  : 'benefit from resources'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'6. Pay attention'
+    top=289.0 bottom=377.0 height=88.0 center=333.0
+'to pacing'
+    top=384.0 bottom=477.0 height=93.0 center=430.5
+
+Average Line Height : 90.5
+Paragraph Threshold : 67.9
+
+NEW NUMBERED: '6. Pay attention'
+
+Gap = 7.0
+Previous : '6. Pay attention'
+Current  : 'to pacing'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'6. Pay attention'
+    top=290.0 bottom=378.0 height=88.0 center=334.0
+'to pacing'
+    top=385.0 bottom=476.0 height=91.0 center=430.5
+
+Average Line Height : 89.5
+Paragraph Threshold : 67.1
+
+NEW NUMBERED: '6. Pay attention'
+
+Gap = 7.0
+Previous : '6. Pay attention'
+Current  : 'to pacing'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'6. Pay attention'
+    top=285.0 bottom=378.0 height=93.0 center=331.5
+'to pacing'
+    top=382.0 bottom=476.0 height=94.0 center=429.0
+
+Average Line Height : 93.5
+Paragraph Threshold : 70.1
+
+NEW NUMBERED: '6. Pay attention'
+
+Gap = 4.0
+Previous : '6. Pay attention'
+Current  : 'to pacing'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'7. Consider various'
+    top=281.0 bottom=350.0 height=69.0 center=315.5
+'levels of integration'
+    top=375.0 bottom=459.0 height=84.0 center=417.0
+
+Average Line Height : 76.5
+Paragraph Threshold : 57.4
+
+NEW NUMBERED: '7. Consider various'
+
+Gap = 25.0
+Previous : '7. Consider various'
+Current  : 'levels of integration'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'7. Consider various'
+    top=282.0 bottom=351.0 height=69.0 center=316.5
+'levels of integration'
+    top=374.0 bottom=460.0 height=86.0 center=417.0
+
+Average Line Height : 77.5
+Paragraph Threshold : 58.1
+
+NEW NUMBERED: '7. Consider various'
+
+Gap = 23.0
+Previous : '7. Consider various'
+Current  : 'levels of integration'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'7. Consider various'
+    top=262.0 bottom=331.0 height=69.0 center=296.5
+'levels of integration'
+    top=361.0 bottom=452.0 height=91.0 center=406.5
+
+Average Line Height : 80.0
+Paragraph Threshold : 60.0
+
+NEW NUMBERED: '7. Consider various'
+
+Gap = 30.0
+Previous : '7. Consider various'
+Current  : 'levels of integration'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'7. Consider various'
+    top=267.0 bottom=360.0 height=93.0 center=313.5
+'levels of integration'
+    top=391.0 bottom=504.0 height=113.0 center=447.5
+
+Average Line Height : 103.0
+Paragraph Threshold : 77.2
+
+NEW NUMBERED: '7. Consider various'
+
+Gap = 31.0
+Previous : '7. Consider various'
+Current  : 'levels of integration'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'7. Consider various'
+    top=268.0 bottom=358.0 height=90.0 center=313.0
+'levels of integration'
+    top=391.0 bottom=504.0 height=113.0 center=447.5
+
+Average Line Height : 101.5
+Paragraph Threshold : 76.1
+
+NEW NUMBERED: '7. Consider various'
+
+Gap = 33.0
+Previous : '7. Consider various'
+Current  : 'levels of integration'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'7. Consider various'
+    top=287.0 bottom=379.0 height=92.0 center=333.0
+'levels of integration'
+    top=411.0 bottom=521.0 height=110.0 center=466.0
+'The religiousness or spirituality of client'
+    top=545.0 bottom=632.0 height=87.0 center=588.5
+'The desire of the client to integrate spirituality'
+    top=642.0 bottom=721.0 height=79.0 center=681.5
+
+Average Line Height : 92.0
+Paragraph Threshold : 69.0
+
+NEW NUMBERED: '7. Consider various'
+
+Gap = 32.0
+Previous : '7. Consider various'
+Current  : 'levels of integration'
+>>> CONTINUE PARAGRAPH
+
+Gap = 24.0
+Previous : 'levels of integration'
+Current  : 'The religiousness or spirituality of client'
+>>> CONTINUE PARAGRAPH
+
+Gap = 10.0
+Previous : 'The religiousness or spirituality of client'
+Current  : 'The desire of the client to integrate spirituality'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'7. Consider various'
+    top=285.0 bottom=377.0 height=92.0 center=331.0
+'levels of integration'
+    top=410.0 bottom=518.0 height=108.0 center=464.0
+'The religiousness or spirituality of client'
+    top=545.0 bottom=631.0 height=86.0 center=588.0
+'The desire of the client to integrate spirituality'
+    top=640.0 bottom=722.0 height=82.0 center=681.0
+'The nature of presenting problem'
+    top=738.0 bottom=822.0 height=84.0 center=780.0
+
+Average Line Height : 90.4
+Paragraph Threshold : 67.8
+
+NEW NUMBERED: '7. Consider various'
+
+Gap = 33.0
+Previous : '7. Consider various'
+Current  : 'levels of integration'
+>>> CONTINUE PARAGRAPH
+
+Gap = 27.0
+Previous : 'levels of integration'
+Current  : 'The religiousness or spirituality of client'
+>>> CONTINUE PARAGRAPH
+
+Gap = 9.0
+Previous : 'The religiousness or spirituality of client'
+Current  : 'The desire of the client to integrate spirituality'
+>>> CONTINUE PARAGRAPH
+
+Gap = 16.0
+Previous : 'The desire of the client to integrate spirituality'
+Current  : 'The nature of presenting problem'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'BGSU'
+    top=408.0 bottom=619.0 height=211.0 center=513.5
+'Bowling Green State University'
+    top=626.0 bottom=702.0 height=76.0 center=664.0
+
+Average Line Height : 143.5
+Paragraph Threshold : 107.6
+
+NEW TITLE: 'BGSU'
+
+Gap = 7.0
+Previous : 'BGSU'
+Current  : 'Bowling Green State University'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'BGSU R'
+    top=420.0 bottom=625.0 height=205.0 center=522.5
+'Bowling Green State University'
+    top=639.0 bottom=708.0 height=69.0 center=673.5
+
+Average Line Height : 137.0
+Paragraph Threshold : 102.8
+
+NEW TITLE: 'BGSU R'
+
+Gap = 14.0
+Previous : 'BGSU R'
+Current  : 'Bowling Green State University'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'BGSU R'
+    top=426.0 bottom=629.0 height=203.0 center=527.5
+'Bowling Green State University'
+    top=643.0 bottom=715.0 height=72.0 center=679.0
+
+Average Line Height : 137.5
+Paragraph Threshold : 103.1
+
+NEW TITLE: 'BGSU R'
+
+Gap = 14.0
+Previous : 'BGSU R'
+Current  : 'Bowling Green State University'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'BGSU R'
+    top=432.0 bottom=633.0 height=201.0 center=532.5
+'Bowling Green State University'
+    top=647.0 bottom=717.0 height=70.0 center=682.0
+
+Average Line Height : 135.5
+Paragraph Threshold : 101.6
+
+NEW TITLE: 'BGSU R'
+
+Gap = 14.0
+Previous : 'BGSU R'
+Current  : 'Bowling Green State University'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'BGSU'
+    top=433.0 bottom=634.0 height=201.0 center=533.5
+'Bowling Green State University'
+    top=648.0 bottom=717.0 height=69.0 center=682.5
+
+Average Line Height : 135.0
+Paragraph Threshold : 101.2
+
+NEW TITLE: 'BGSU'
+
+Gap = 14.0
+Previous : 'BGSU'
+Current  : 'Bowling Green State University'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'BGSU'
+    top=432.0 bottom=634.0 height=202.0 center=533.0
+'Bowling Green State University'
+    top=647.0 bottom=717.0 height=70.0 center=682.0
+
+Average Line Height : 136.0
+Paragraph Threshold : 102.0
+
+NEW TITLE: 'BGSU'
+
+Gap = 13.0
+Previous : 'BGSU'
+Current  : 'Bowling Green State University'
+>>> CONTINUE PARAGRAPH
+
+
+===================================================
+Paragraph Reconstruction
+===================================================
+'BGSU R'
+    top=423.0 bottom=626.0 height=203.0 center=524.5
+'Bowling Green State University'
+    top=639.0 bottom=711.0 height=72.0 center=675.0
+
+Average Line Height : 137.5
+Paragraph Threshold : 103.1
+
+NEW TITLE: 'BGSU R'
+
+Gap = 13.0
+Previous : 'BGSU R'
+Current  : 'Bowling Green State University'
+>>> CONTINUE PARAGRAPH
+
