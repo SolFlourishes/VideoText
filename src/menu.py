@@ -17,10 +17,10 @@ def select_start_stage():
     print("=" * 40)
     print("VideoText Development Mode")
     print("=" * 40)
-    print("1. Full Pipeline")
+    print("1. Full Proceess")
     print("2. OCR")
     print("3. Reading Order")
-    print("4. Duplicate Detection")
+    print("4. Slide Consolidation")
     print("5. Excel Export")
     print()
 
@@ -36,7 +36,7 @@ def select_start_stage():
         return "reading_order"
 
     if choice == "4":
-        return "duplicates"
+        return "slide_consolidation"
 
     if choice == "5":
         return "excel"

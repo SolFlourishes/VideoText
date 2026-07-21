@@ -5,6 +5,8 @@ Application entry point for VideoText.
 """
 
 from reading_order import reconstruct_reading_order
+from slide_consolidator import consolidate_slides
+
 from video_reader import open_video
 from frame_analyzer import analyze_video
 from frame_saver import save_candidate_frames
@@ -30,9 +32,6 @@ def main():
     Main application entry point.
     """
 
-    #
-    # Select where to begin.
-    #
     start_stage = select_start_stage()
 
     video = None
@@ -88,6 +87,25 @@ def main():
             OCR_CACHE,
         )
 
+    #
+    # ----------------------------
+    # Stage 4 - Slide Consolidation
+    # ----------------------------
+    #
+    elif start_stage == "slide_consolidation":
+
+        print("Loading cached reading order...")
+
+        candidate_frames = load_cache(
+            READING_ORDER_CACHE,
+        )
+
+        slides = consolidate_slides(candidate_frames)
+
+        print(f"\nCreated {len(slides)} slides.")
+
+        return
+
     else:
 
         print(f"Stage '{start_stage}' is not implemented yet.")
@@ -111,10 +129,12 @@ def main():
     candidate_frames = reconstruct_reading_order(
         candidate_frames,
     )
+
     save_cache(
         candidate_frames,
         READING_ORDER_CACHE,
-)
+    )
+
     #
     # Release video.
     #
