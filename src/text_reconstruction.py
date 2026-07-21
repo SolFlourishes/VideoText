@@ -6,7 +6,6 @@ Utilities for reconstructing readable text lines from OCR results.
 
 from models import OCRResult, TextLine
 
-
 #
 # Minimum percentage of vertical overlap required for two OCR
 # regions to belong to the same visual text line.
@@ -50,9 +49,7 @@ def reconstruct_lines(
     )
 
     grouped_lines: list[list[OCRResult]] = []
-
     line_tops: list[float] = []
-
     line_bottoms: list[float] = []
 
     for word in words:
@@ -98,6 +95,10 @@ def reconstruct_lines(
     for line in grouped_lines:
 
         line.sort(key=lambda r: r.left)
+
+        print("\nRECONSTRUCTED LINE")
+        for word in line:
+            print(f"   {word.text}")
 
         reconstructed.append(
             TextLine(

@@ -6,6 +6,7 @@ Data models used throughout the VideoText processing pipeline.
 
 from dataclasses import dataclass, field
 from typing import List
+from enum import Enum
 import numpy as np
 
 
@@ -21,36 +22,27 @@ class OCRResult:
 
     @property
     def left(self) -> float:
-        """Left-most x coordinate."""
         return float(self.bounding_box[0])
 
     @property
     def top(self) -> float:
-        """Top y coordinate."""
         return float(self.bounding_box[1])
 
     @property
     def right(self) -> float:
-        """Right-most x coordinate."""
         return float(self.bounding_box[2])
 
     @property
     def bottom(self) -> float:
-        """Bottom y coordinate."""
         return float(self.bounding_box[3])
 
     @property
     def center_x(self) -> float:
-        """Horizontal center of the bounding box."""
         return (self.left + self.right) / 2
 
     @property
     def center_y(self) -> float:
-        """Vertical center of the bounding box."""
         return (self.top + self.bottom) / 2
-
-from dataclasses import dataclass
-from enum import Enum
 
 
 class TextType(Enum):
@@ -65,6 +57,10 @@ class TextType(Enum):
 
 @dataclass
 class TextLine:
+    """
+    A reconstructed visual text line.
+    """
+
     text: str
 
     top: float
@@ -83,6 +79,15 @@ class TextLine:
 
     bullet_level: int = 0
 
+    @property
+    def center_x(self) -> float:
+        return (self.left + self.right) / 2
+
+    @property
+    def center_y(self) -> float:
+        return (self.top + self.bottom) / 2
+
+
 @dataclass
 class TextParagraph:
     """
@@ -98,6 +103,51 @@ class TextParagraph:
     indent_level: int = 0
 
     bullet_level: int = 0
+
+    #
+    # Geometry computed from the contained text lines.
+    #
+
+    @property
+    def left(self) -> float:
+        if not self.lines:
+            return 0.0
+        return min(line.left for line in self.lines)
+
+    @property
+    def right(self) -> float:
+        if not self.lines:
+            return 0.0
+        return max(line.right for line in self.lines)
+
+    @property
+    def top(self) -> float:
+        if not self.lines:
+            return 0.0
+        return min(line.top for line in self.lines)
+
+    @property
+    def bottom(self) -> float:
+        if not self.lines:
+            return 0.0
+        return max(line.bottom for line in self.lines)
+
+    @property
+    def width(self) -> float:
+        return self.right - self.left
+
+    @property
+    def height(self) -> float:
+        return self.bottom - self.top
+
+    @property
+    def center_x(self) -> float:
+        return (self.left + self.right) / 2
+
+    @property
+    def center_y(self) -> float:
+        return (self.top + self.bottom) / 2
+
 
 @dataclass
 class ComparisonResult:
@@ -116,6 +166,7 @@ class ComparisonResult:
     decision: bool = False
 
     reason: str = ""
+
 
 @dataclass
 class CandidateFrame:
@@ -208,6 +259,9 @@ class Slide:
 
     A slide may contain multiple builds as bullets or graphics are
     progressively revealed.
+
+    During slide consolidation, the canonical reconstructed
+    paragraph list is stored in 'paragraphs'.
     """
 
     slide_number: int
@@ -215,5 +269,11 @@ class Slide:
     end_time: float
 
     builds: List[SlideBuild] = field(default_factory=list)
+
+    #
+    # Canonical reconstructed content produced by the
+    # slide consolidation stage.
+    #
+    paragraphs: list[TextParagraph] = field(default_factory=list)
 
     final_text: str = ""

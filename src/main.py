@@ -7,6 +7,7 @@ Application entry point for VideoText.
 from reading_order import reconstruct_reading_order
 from slide_consolidator import consolidate_slides
 from slide_debug import print_slide_report
+from markdown_exporter import export_markdown
 
 from video_reader import open_video
 from frame_analyzer import analyze_video
@@ -170,6 +171,16 @@ def main():
     slides = consolidate_slides(candidate_frames)
 
     print_slide_report(slides)
+
+    #
+    # ----------------------------
+    # Markdown Export
+    # ----------------------------
+    #
+    markdown = export_markdown(slides)
+
+    print("\n=== Markdown Preview ===\n")
+    print(markdown)
 
     #
     # ----------------------------

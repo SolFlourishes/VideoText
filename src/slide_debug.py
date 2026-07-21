@@ -7,6 +7,32 @@ Utilities for displaying slide consolidation results.
 from models import Slide
 
 
+def print_paragraphs(paragraphs) -> None:
+    """
+    Print a formatted list of reconstructed paragraphs.
+    """
+
+    if not paragraphs:
+        print("<No Paragraphs>")
+        return
+
+    for i, paragraph in enumerate(paragraphs, start=1):
+
+        print(f"[Paragraph {i}]")
+        print(f"Type : {paragraph.text_type.name}")
+        print(f"Text : {paragraph.text}")
+        print(f"Lines: {len(paragraph.lines)}")
+
+        for j, line in enumerate(paragraph.lines, start=1):
+            print(
+                f"   {j}. "
+                f"({line.text_type.name}) "
+                f"'{line.text}'"
+            )
+
+        print()
+
+
 def print_slide_report(slides: list[Slide]) -> None:
     """
     Print a readable report of the consolidated slides.
@@ -52,26 +78,16 @@ def print_slide_report(slides: list[Slide]) -> None:
                 )
 
             print("-" * 70)
-            
-            if frame.text_paragraphs:
 
-                for i, paragraph in enumerate(frame.text_paragraphs, start=1):
+            print_paragraphs(frame.text_paragraphs)
 
-                    print(f"[Paragraph {i}]")
-                    print(f"Type : {paragraph.text_type.name}")
-                    print(f"Text : {paragraph.text}")
-                    print(f"Lines: {len(paragraph.lines)}")
+        #
+        # Canonical slide after consolidating all builds.
+        #
+        print("-" * 70)
+        print("\nCanonical Slide")
+        print("-" * 70)
 
-                    for j, line in enumerate(paragraph.lines, start=1):
-                        print(
-                            f"   {j}. "
-                            f"({line.text_type.name}) "
-                            f"'{line.text}'"
-                        )
-
-                    print()
-
-            else:
-                print("<No Paragraphs>")
+        print_paragraphs(slide.paragraphs)
 
         print()

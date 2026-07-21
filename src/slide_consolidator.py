@@ -4,9 +4,13 @@ slide_consolidator.py
 Groups CandidateFrames into logical slides.
 """
 
+from copy import deepcopy
 from typing import List
 
 from models import CandidateFrame, Slide, SlideBuild
+
+
+SIMILARITY_THRESHOLD = 0.60
 
 
 def normalize_text(text: str) -> str:
@@ -16,9 +20,79 @@ def normalize_text(text: str) -> str:
     return " ".join(text.lower().split())
 
 
+def text_words(text: str) -> set[str]:
+    """
+    Convert text into a normalized set of words.
+    """
+
+    return set(normalize_text(text).split())
+
+
+def similarity_score(text1: str, text2: str) -> float:
+    """
+    Compute Jaccard similarity between two texts.
+    """
+
+    words1 = text_words(text1)
+    words2 = text_words(text2)
+
+    if not words1 and not words2:
+        return 1.0
+
+    if not words1 or not words2:
+        return 0.0
+
+    intersection = len(words1 & words2)
+    union = len(words1 | words2)
+
+    return intersection / union
+
+
+def merge_or_add_paragraph(paragraphs, candidate):
+    """
+    Add a paragraph or replace an existing one with a more complete version.
+    """
+
+    candidate_text = normalize_text(candidate.text)
+
+    for index, paragraph in enumerate(paragraphs):
+
+        if paragraph.text_type != candidate.text_type:
+            continue
+
+        existing_text = normalize_text(paragraph.text)
+
+        #
+        # Exact duplicate.
+        #
+        if existing_text == candidate_text:
+            return
+
+        #
+        # Candidate is more complete.
+        #
+        if (
+            candidate_text.startswith(existing_text)
+            and len(candidate_text) > len(existing_text)
+        ):
+            paragraphs[index] = deepcopy(candidate)
+            return
+
+        #
+        # Existing paragraph is already more complete.
+        #
+        if (
+            existing_text.startswith(candidate_text)
+            and len(existing_text) >= len(candidate_text)
+        ):
+            return
+
+    paragraphs.append(deepcopy(candidate))
+
+
 def is_same_slide(previous_text: str, current_text: str) -> bool:
     """
-    Determine whether two frames belong to the same logical slide.
+    Determine whether two frames belong to the same slide.
     """
 
     previous = normalize_text(previous_text)
@@ -27,7 +101,7 @@ def is_same_slide(previous_text: str, current_text: str) -> bool:
     #
     # Exact duplicate.
     #
-    if current == previous:
+    if previous == current:
         return True
 
     #
@@ -36,7 +110,10 @@ def is_same_slide(previous_text: str, current_text: str) -> bool:
     if current.startswith(previous):
         return True
 
-    return False
+    #
+    # Word similarity.
+    #
+    return similarity_score(previous, current) >= SIMILARITY_THRESHOLD
 
 
 def consolidate_slides(candidate_frames: List[CandidateFrame]) -> List[Slide]:
@@ -68,31 +145,21 @@ def consolidate_slides(candidate_frames: List[CandidateFrame]) -> List[Slide]:
 
     slides.append(current_slide)
 
-    #
-    # Track the current build separately.
-    #
     current_build = first_build
 
     for frame in candidate_frames[1:]:
 
-        #
-        # Same slide.
-        #
         if is_same_slide(
             current_slide.final_text,
             frame.combined_text,
         ):
 
-            #
-            # Same build (identical text).
-            #
-            if normalize_text(frame.combined_text) == normalize_text(current_build.final_text):
+            if normalize_text(frame.combined_text) == normalize_text(
+                current_build.final_text
+            ):
 
                 current_build.candidate_frames.append(frame)
 
-            #
-            # Progressive build.
-            #
             else:
 
                 current_build = SlideBuild(
@@ -106,9 +173,6 @@ def consolidate_slides(candidate_frames: List[CandidateFrame]) -> List[Slide]:
 
             current_slide.end_time = frame.timestamp
 
-        #
-        # New slide.
-        #
         else:
 
             slide_number += 1
@@ -127,5 +191,23 @@ def consolidate_slides(candidate_frames: List[CandidateFrame]) -> List[Slide]:
             )
 
             slides.append(current_slide)
+
+    #
+    # Build canonical paragraphs.
+    #
+    for slide in slides:
+
+        slide.paragraphs.clear()
+
+        for build in slide.builds:
+
+            frame = build.representative_frame
+
+            for paragraph in frame.text_paragraphs:
+
+                merge_or_add_paragraph(
+                    slide.paragraphs,
+                    paragraph,
+                )
 
     return slides
