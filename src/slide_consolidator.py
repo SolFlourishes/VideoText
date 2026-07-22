@@ -13,6 +13,25 @@ from models import CandidateFrame, Slide, SlideBuild
 SIMILARITY_THRESHOLD = 0.60
 
 
+class ParagraphCluster:
+    """
+    Collect multiple observations of the same paragraph.
+    """
+
+    def __init__(self, paragraph):
+        self.paragraphs = [deepcopy(paragraph)]
+
+    def add(self, paragraph):
+        self.paragraphs.append(deepcopy(paragraph))
+
+    @property
+    def best(self):
+        return max(
+            self.paragraphs,
+            key=lambda p: len(normalize_text(p.text)),
+        )
+
+
 def normalize_text(text: str) -> str:
     """
     Normalize OCR text for comparison.
@@ -24,7 +43,6 @@ def text_words(text: str) -> set[str]:
     """
     Convert text into a normalized set of words.
     """
-
     return set(normalize_text(text).split())
 
 
@@ -48,9 +66,9 @@ def similarity_score(text1: str, text2: str) -> float:
     return intersection / union
 
 
-def merge_or_add_paragraph(paragraphs, candidate):
+def find_matching_paragraph(paragraphs, candidate):
     """
-    Add a paragraph or replace an existing one with a more complete version.
+    Return the index of a matching paragraph, or None.
     """
 
     candidate_text = normalize_text(candidate.text)
@@ -66,27 +84,68 @@ def merge_or_add_paragraph(paragraphs, candidate):
         # Exact duplicate.
         #
         if existing_text == candidate_text:
-            return
+            return index
 
         #
-        # Candidate is more complete.
+        # One paragraph is a prefix of the other.
         #
         if (
             candidate_text.startswith(existing_text)
-            and len(candidate_text) > len(existing_text)
+            or existing_text.startswith(candidate_text)
         ):
-            paragraphs[index] = deepcopy(candidate)
-            return
+            return index
 
-        #
-        # Existing paragraph is already more complete.
-        #
-        if (
-            existing_text.startswith(candidate_text)
-            and len(existing_text) >= len(candidate_text)
-        ):
-            return
+    return None
 
+
+def merge_or_add_paragraph(paragraphs, candidate):
+    """
+    Add a paragraph or replace an existing one with a more complete version.
+    """
+
+    candidate_text = normalize_text(candidate.text)
+
+    match = find_matching_paragraph(
+        paragraphs,
+        candidate,
+    )
+
+    if match is None:
+        paragraphs.append(deepcopy(candidate))
+        return
+
+    index = match
+    paragraph = paragraphs[index]
+    existing_text = normalize_text(paragraph.text)
+
+    #
+    # Exact duplicate.
+    #
+    if existing_text == candidate_text:
+        return
+
+    #
+    # Candidate is more complete.
+    #
+    if (
+        candidate_text.startswith(existing_text)
+        and len(candidate_text) > len(existing_text)
+    ):
+        paragraphs[index] = deepcopy(candidate)
+        return
+
+    #
+    # Existing paragraph is already more complete.
+    #
+    if (
+        existing_text.startswith(candidate_text)
+        and len(existing_text) >= len(candidate_text)
+    ):
+        return
+
+    #
+    # Fallback (should rarely occur).
+    #
     paragraphs.append(deepcopy(candidate))
 
 
@@ -197,7 +256,7 @@ def consolidate_slides(candidate_frames: List[CandidateFrame]) -> List[Slide]:
     #
     for slide in slides:
 
-        slide.paragraphs.clear()
+        clusters: list[ParagraphCluster] = []
 
         for build in slide.builds:
 
@@ -205,9 +264,19 @@ def consolidate_slides(candidate_frames: List[CandidateFrame]) -> List[Slide]:
 
             for paragraph in frame.text_paragraphs:
 
-                merge_or_add_paragraph(
-                    slide.paragraphs,
+                match = find_matching_paragraph(
+                    [cluster.best for cluster in clusters],
                     paragraph,
                 )
+
+                if match is None:
+                    clusters.append(ParagraphCluster(paragraph))
+                else:
+                    clusters[match].add(paragraph)
+
+        slide.paragraphs.clear()
+
+        for cluster in clusters:
+            slide.paragraphs.append(cluster.best)
 
     return slides
