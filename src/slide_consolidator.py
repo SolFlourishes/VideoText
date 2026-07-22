@@ -5,12 +5,20 @@ Groups CandidateFrames into logical slides.
 """
 
 from copy import deepcopy
+from difflib import SequenceMatcher
 from typing import List
 
 from models import CandidateFrame, Slide, SlideBuild
 
 
 SIMILARITY_THRESHOLD = 0.60
+
+#
+# Paragraphs at this level may differ by a few OCR characters or by
+# accidental spacing within a word.  This threshold still requires most
+# characters to agree, while allowing variants such as "based" / "basec s".
+#
+PARAGRAPH_SIMILARITY_THRESHOLD = 0.65
 
 
 class ParagraphCluster:
@@ -66,6 +74,24 @@ def similarity_score(text1: str, text2: str) -> float:
     return intersection / union
 
 
+def paragraph_similarity_score(text1: str, text2: str) -> float:
+    """
+    Compute character-level similarity for OCR variants of one paragraph.
+
+    Word-set similarity is appropriate for deciding whether whole frames
+    belong to one slide, but it loses the spelling and spacing detail needed
+    to compare individual paragraphs.  Character similarity preserves that
+    detail and is deterministic.
+    """
+
+    return SequenceMatcher(
+        None,
+        normalize_text(text1),
+        normalize_text(text2),
+        autojunk=False,
+    ).ratio()
+
+
 def find_matching_paragraph(paragraphs, candidate):
     """
     Return the index of a matching paragraph, or None.
@@ -92,6 +118,16 @@ def find_matching_paragraph(paragraphs, candidate):
         if (
             candidate_text.startswith(existing_text)
             or existing_text.startswith(candidate_text)
+        ):
+            return index
+
+        #
+        # Near-identical OCR variants.  This handles small substitutions,
+        # insertions, and spacing differences without changing OCR text.
+        #
+        if (
+            paragraph_similarity_score(existing_text, candidate_text)
+            >= PARAGRAPH_SIMILARITY_THRESHOLD
         ):
             return index
 
@@ -260,19 +296,24 @@ def consolidate_slides(candidate_frames: List[CandidateFrame]) -> List[Slide]:
 
         for build in slide.builds:
 
-            frame = build.representative_frame
+            #
+            # Each frame is an OCR observation of this build.  Preserve all
+            # of that evidence for paragraph clustering rather than using
+            # only the first frame selected for reporting.
+            #
+            for frame in build.candidate_frames:
 
-            for paragraph in frame.text_paragraphs:
+                for paragraph in frame.text_paragraphs:
 
-                match = find_matching_paragraph(
-                    [cluster.best for cluster in clusters],
-                    paragraph,
-                )
+                    match = find_matching_paragraph(
+                        [cluster.best for cluster in clusters],
+                        paragraph,
+                    )
 
-                if match is None:
-                    clusters.append(ParagraphCluster(paragraph))
-                else:
-                    clusters[match].add(paragraph)
+                    if match is None:
+                        clusters.append(ParagraphCluster(paragraph))
+                    else:
+                        clusters[match].add(paragraph)
 
         slide.paragraphs.clear()
 
