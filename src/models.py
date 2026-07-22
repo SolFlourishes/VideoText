@@ -277,3 +277,19 @@ class Slide:
     paragraphs: list[TextParagraph] = field(default_factory=list)
 
     final_text: str = ""
+
+
+@dataclass
+class Presentation:
+    """
+    Represents the complete reconstructed presentation.
+
+    Slides and each slide's paragraphs are stored in pipeline order so future
+    exporters can consume one format-independent document model.
+    """
+
+    metadata: dict[str, object] = field(default_factory=dict)
+
+    slides: list[Slide] = field(default_factory=list)
+
+    statistics: dict[str, object] = field(default_factory=dict)
