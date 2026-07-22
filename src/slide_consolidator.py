@@ -34,9 +34,32 @@ class ParagraphCluster:
 
     @property
     def best(self):
-        return max(
-            self.paragraphs,
-            key=lambda p: len(normalize_text(p.text)),
+        #
+        # Prefer the text observed most often across frames.  OCR variants
+        # remain as separate observations, so their normalized text is the
+        # unit counted here.
+        #
+        counts: dict[str, int] = {}
+
+        for paragraph in self.paragraphs:
+            text = normalize_text(paragraph.text)
+            counts[text] = counts.get(text, 0) + 1
+
+        #
+        # On equal observation counts, retain the more complete text.  dict
+        # insertion order plus max()'s first-match behavior preserves the
+        # existing deterministic ordering when both values are tied.
+        #
+        selected_text = max(
+            counts,
+            key=lambda text: (counts[text], len(text)),
+        )
+
+        # Return the first original Paragraph for the selected text.
+        return next(
+            paragraph
+            for paragraph in self.paragraphs
+            if normalize_text(paragraph.text) == selected_text
         )
 
 
