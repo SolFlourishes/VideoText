@@ -189,7 +189,7 @@ def main():
     # Markdown Export
     # ----------------------------
     #
-    markdown = export_markdown(slides)
+    markdown = export_markdown(presentation)
 
     print("\n=== Markdown Preview ===\n")
     print(markdown)
