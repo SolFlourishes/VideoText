@@ -4,12 +4,17 @@ markdown_exporter.py
 Exports reconstructed slides to Markdown.
 """
 
+from pathlib import Path
+
 from models import Presentation
 
 
-def export_markdown(presentation: Presentation) -> str:
+def export_markdown(
+    presentation: Presentation,
+    output_path: str,
+) -> str:
     """
-    Export a presentation to Markdown.
+    Export a presentation to a Markdown file.
     """
 
     output: list[str] = []
@@ -45,4 +50,8 @@ def export_markdown(presentation: Presentation) -> str:
 
             output.append("")
 
-    return "\n".join(output)
+    markdown = "\n".join(output)
+
+    Path(output_path).write_text(markdown, encoding="utf-8")
+
+    return output_path

@@ -189,18 +189,16 @@ def main():
     # Markdown Export
     # ----------------------------
     #
-    markdown = export_markdown(presentation)
+    output_path = "output/videotext_export.md"
 
-    print("\n=== Markdown Preview ===\n")
-    print(markdown)
+    saved_path = export_markdown(
+        presentation,
+        output_path,
+    )
 
-    #
-    # ----------------------------
-    # Placeholder Export
-    # ----------------------------
-    #
     print("\n=== Export ===")
-    print("Export not implemented yet.")
+    print("Export complete.")
+    print(f"Saved to: {saved_path}")
 
     #
     # Cleanup
