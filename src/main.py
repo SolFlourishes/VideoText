@@ -4,10 +4,13 @@ main.py
 Application entry point for VideoText.
 """
 
+from pathlib import Path
+
 from reading_order import reconstruct_reading_order
 from slide_consolidator import consolidate_slides
 from slide_debug import print_slide_report
 from markdown_exporter import export_markdown
+from csv_exporter import export_csv
 from models import Presentation
 
 from video_reader import open_video
@@ -190,15 +193,21 @@ def main():
     # ----------------------------
     #
     output_path = "output/videotext_export.md"
+    csv_output_path = str(Path(output_path).with_suffix(".csv"))
 
     saved_path = export_markdown(
         presentation,
         output_path,
     )
+    saved_csv_path = export_csv(
+        presentation,
+        csv_output_path,
+    )
 
     print("\n=== Export ===")
     print("Export complete.")
-    print(f"Saved to: {saved_path}")
+    print(f"Saved Markdown: {saved_path}")
+    print(f"Saved CSV: {saved_csv_path}")
 
     #
     # Cleanup
