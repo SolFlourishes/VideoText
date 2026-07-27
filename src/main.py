@@ -9,8 +9,7 @@ from pathlib import Path
 from reading_order import reconstruct_reading_order
 from slide_consolidator import consolidate_slides
 from slide_debug import print_slide_report
-from markdown_exporter import export_markdown
-from csv_exporter import export_csv
+from export_manager import export_all
 from models import Presentation
 
 from video_reader import open_video
@@ -189,25 +188,19 @@ def main():
 
     #
     # ----------------------------
-    # Markdown Export
+    # Export
     # ----------------------------
     #
-    output_path = "output/videotext_export.md"
-    csv_output_path = str(Path(output_path).with_suffix(".csv"))
-
-    saved_path = export_markdown(
+    saved_paths = export_all(
         presentation,
-        output_path,
-    )
-    saved_csv_path = export_csv(
-        presentation,
-        csv_output_path,
+        Path("output"),
+        ["markdown", "csv"],
     )
 
     print("\n=== Export ===")
     print("Export complete.")
-    print(f"Saved Markdown: {saved_path}")
-    print(f"Saved CSV: {saved_csv_path}")
+    print(f"Saved Markdown: {saved_paths['markdown']}")
+    print(f"Saved CSV: {saved_paths['csv']}")
 
     #
     # Cleanup
