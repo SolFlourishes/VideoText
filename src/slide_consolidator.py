@@ -34,6 +34,11 @@ class ParagraphCluster:
 
     @property
     def best(self):
+        progressive_endpoint = _progressive_prefix_endpoint(self.paragraphs)
+
+        if progressive_endpoint is not None:
+            return progressive_endpoint
+
         #
         # Prefer the text observed most often across frames.  OCR variants
         # remain as separate observations, so their normalized text is the
@@ -61,6 +66,42 @@ class ParagraphCluster:
             for paragraph in self.paragraphs
             if normalize_text(paragraph.text) == selected_text
         )
+
+
+def _progressive_prefix_endpoint(paragraphs):
+    """
+    Return the longest original paragraph when all variants form one strict
+    prefix-extension chain; otherwise return None.
+    """
+
+    variants: dict[str, None] = {}
+
+    for paragraph in paragraphs:
+        variants.setdefault(normalize_text(paragraph.text), None)
+
+    ordered_variants = sorted(variants, key=len)
+
+    if len(ordered_variants) < 2:
+        return None
+
+    if not all(
+        len(shorter) < len(longer)
+        and longer.startswith(shorter)
+        for shorter, longer in zip(
+            ordered_variants,
+            ordered_variants[1:],
+        )
+    ):
+        return None
+
+    endpoint = ordered_variants[-1]
+
+    # Return the stored original object rather than normalized text.
+    return next(
+        paragraph
+        for paragraph in paragraphs
+        if normalize_text(paragraph.text) == endpoint
+    )
 
 
 def normalize_text(text: str) -> str:
