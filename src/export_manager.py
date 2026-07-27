@@ -7,6 +7,7 @@ Coordinates presentation exports and their output paths.
 from pathlib import Path
 
 from csv_exporter import export_csv
+from excel_exporter import export_excel
 from markdown_exporter import export_markdown
 from models import Presentation
 
@@ -14,6 +15,7 @@ from models import Presentation
 EXPORTERS = {
     "markdown": (".md", export_markdown),
     "csv": (".csv", export_csv),
+    "excel": (".xlsx", export_excel),
 }
 
 
