@@ -1,5 +1,16 @@
 Benchmark Videos
 
+Manual OCR diagnostic
+
+Automated tests do not require the full OCR runtime. To inspect PaddleOCR
+output for a saved candidate-frame PNG, run:
+
+    python tools/manual_ocr_probe.py --image <candidate-frame.png>
+
+The manual probe requires OpenCV, PaddleOCR, and PaddlePaddle. It can also
+select a PNG from a candidate-frame directory with
+``--candidate-frames-dir <directory> --index 8``.
+
 Video A
 
 Expected:
