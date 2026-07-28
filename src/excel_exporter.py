@@ -5,10 +5,105 @@ Exports reconstructed presentations to Excel.
 """
 
 from openpyxl import Workbook
-from openpyxl.styles import Font
-from openpyxl.utils import get_column_letter
+from openpyxl.styles import Alignment, Font, PatternFill
+from datetime import datetime
+from pathlib import Path
 
 from models import Presentation
+
+
+BASE_ROW_HEIGHT = 15
+BULLET_PREFIXES = ("•", "-", "◦", "▪", "○", "*")
+TITLE_ROW = 1
+METADATA_START_ROW = 2
+TABLE_HEADER_ROW = 10
+TABLE_START_ROW = TABLE_HEADER_ROW + 1
+TITLE_TEXT = "VideoText Translation Workbook"
+TABLE_HEADERS = ("Slide", "Original Text", "Translated Text")
+HEADER_FILL = PatternFill(fill_type="solid", fgColor="D9EAF7")
+
+
+def _paragraph_lines(paragraph) -> list[str]:
+    """Return visual source lines when available, otherwise text lines."""
+
+    source_lines = [line.text for line in paragraph.lines]
+
+    if sum(bool(line.strip()) for line in source_lines) > 1:
+        return source_lines
+
+    return paragraph.text.splitlines()
+
+
+def _format_paragraph_text(paragraph) -> tuple[str, int]:
+    """Format continuation lines for one readable spreadsheet cell."""
+
+    lines = _paragraph_lines(paragraph)
+
+    if sum(bool(line.strip()) for line in lines) < 2:
+        return paragraph.text, 1
+
+    formatted_lines: list[str] = []
+    first_content_line = True
+
+    for line in lines:
+        if not line.strip():
+            formatted_lines.append(line)
+            continue
+
+        if first_content_line:
+            formatted_lines.append(line)
+            first_content_line = False
+        elif line.lstrip().startswith(BULLET_PREFIXES):
+            formatted_lines.append(line)
+        else:
+            formatted_lines.append(f"• {line}")
+
+    return "\n".join(formatted_lines), max(1, len(formatted_lines))
+
+
+def _video_name(presentation: Presentation) -> str:
+    """Return the processed video stem when metadata makes it available."""
+
+    video_path = presentation.metadata.get("video_path")
+    if video_path:
+        return Path(str(video_path)).stem
+
+    checkpoint_path = presentation.metadata.get("source_checkpoint")
+    if checkpoint_path:
+        checkpoint = Path(str(checkpoint_path))
+        if checkpoint.parent.name.lower() == "cache":
+            return checkpoint.parent.parent.name
+
+    return ""
+
+
+def _write_metadata(worksheet, presentation: Presentation) -> None:
+    """Write editable translation metadata above the slide table."""
+
+    worksheet.merge_cells("A1:C1")
+    title_cell = worksheet.cell(row=TITLE_ROW, column=1, value=TITLE_TEXT)
+    title_cell.font = Font(bold=True, size=16)
+    title_cell.alignment = Alignment(vertical="center")
+    worksheet.row_dimensions[TITLE_ROW].height = 24
+
+    metadata = (
+        ("Video:", _video_name(presentation)),
+        ("Date (Processed):", datetime.now().strftime("%Y-%m-%d %H:%M")),
+        ("Date (Translated):", ""),
+        ("Translator(s):", ""),
+        ("Language (Source):", ""),
+        ("Language (Target):", ""),
+        ("Notes:", ""),
+    )
+
+    for offset, (label, value) in enumerate(metadata):
+        row = METADATA_START_ROW + offset
+        worksheet.cell(row=row, column=1, value=label).font = Font(bold=True)
+        worksheet.merge_cells(start_row=row, start_column=2, end_row=row, end_column=3)
+        value_cell = worksheet.cell(row=row, column=2, value=value)
+        value_cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+    worksheet.row_dimensions[METADATA_START_ROW + len(metadata) - 1].height = 36
 
 
 def export_excel(
@@ -22,32 +117,44 @@ def export_excel(
     workbook = Workbook()
     worksheet = workbook.active
 
-    worksheet.append([
-        "Slide Number",
-        "Paragraph Type",
-        "Paragraph Text",
-    ])
+    _write_metadata(worksheet, presentation)
 
-    for cell in worksheet[1]:
+    for column, header in enumerate(TABLE_HEADERS, start=1):
+        cell = worksheet.cell(row=TABLE_HEADER_ROW, column=column, value=header)
         cell.font = Font(bold=True)
+        cell.fill = HEADER_FILL
+        cell.alignment = Alignment(wrap_text=True, vertical="center")
 
-    worksheet.freeze_panes = "A2"
+    worksheet.freeze_panes = f"A{TABLE_START_ROW}"
 
     for slide in presentation.slides:
         for paragraph in slide.paragraphs:
-            worksheet.append([
-                slide.slide_number,
-                paragraph.text_type.name,
-                paragraph.text,
-            ])
+            paragraph_text, line_count = _format_paragraph_text(paragraph)
 
-    for column_cells in worksheet.columns:
-        max_length = max(
-            len(str(cell.value)) if cell.value is not None else 0
-            for cell in column_cells
-        )
-        column_letter = get_column_letter(column_cells[0].column)
-        worksheet.column_dimensions[column_letter].width = max_length + 2
+            row_number = worksheet.max_row + 1
+            worksheet.cell(row=row_number, column=1, value=slide.slide_number)
+            original_text_cell = worksheet.cell(
+                row=row_number,
+                column=2,
+                value=paragraph_text,
+            )
+            original_text_cell.alignment = Alignment(
+                wrap_text=True,
+                vertical="top",
+            )
+            translated_text_cell = worksheet.cell(row=row_number, column=3, value="")
+            translated_text_cell.alignment = Alignment(
+                wrap_text=True,
+                vertical="top",
+            )
+            worksheet.row_dimensions[row_number].height = (
+                BASE_ROW_HEIGHT * line_count
+            )
+
+    worksheet.column_dimensions["A"].width = 10
+    worksheet.column_dimensions["B"].width = 60
+    worksheet.column_dimensions["C"].width = 60
+    worksheet.auto_filter.ref = f"A{TABLE_HEADER_ROW}:C{worksheet.max_row}"
 
     workbook.save(output_path)
 

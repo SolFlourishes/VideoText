@@ -1,216 +1,191 @@
-"""
-main.py
-
-Application entry point for VideoText.
-"""
+"""Command-line entry point for VideoText."""
 
 from pathlib import Path
+from typing import Callable, Optional
 
-from reading_order import reconstruct_reading_order
-from slide_consolidator import consolidate_slides
-from slide_debug import print_slide_report
-from export_manager import export_all
-from models import Presentation
-
-from video_reader import open_video
-from frame_analyzer import analyze_video
-from frame_saver import save_candidate_frames
-from ocr_engine import perform_ocr
-
-from config import (
-    CANDIDATE_FRAME_FOLDER,
-    CANDIDATE_CACHE,
-    OCR_CACHE,
-    READING_ORDER_CACHE,
+from batch_processing import (
+    BatchProcessingRequest,
+    BatchProgress,
+    format_batch_summary,
+    process_batch,
+    videos_in_folder,
+)
+from menu import CliProcessingMode, select_cli_mode, select_processing_mode
+from processing_service import (
+    ProcessingMode,
+    ProcessingProgress,
+    ProcessingRequest,
+    ProcessingResult,
+    format_duration,
+    format_processing_summary,
+    process_request,
 )
 
-from cache_manager import (
-    save_cache,
-    load_cache,
-)
 
-from menu import select_start_stage
+def process_video(
+    video_path: str,
+    output_directory: Path,
+    formats: list[str],
+    progress_callback: Optional[Callable[[ProcessingProgress], None]] = None,
+) -> ProcessingResult:
+    """Run the existing full-video workflow through the shared service."""
 
-
-def print_summary(candidate_frames):
-    """
-    Print processing summary.
-    """
-
-    print("\nProcessing complete.")
-
-    print(f"\nSelected {len(candidate_frames)} candidate frames.")
-
-    values = [frame.difference_score for frame in candidate_frames]
-
-    print(f"Minimum Difference : {min(values):.2f}")
-    print(f"Maximum Difference : {max(values):.2f}")
-    print(f"Average Difference : {sum(values) / len(values):.2f}")
-
-    print("\nTop 10 Largest Changes")
-
-    top_changes = sorted(
-        candidate_frames,
-        key=lambda frame: frame.difference_score,
-        reverse=True,
-    )[:10]
-
-    for frame in top_changes:
-        print(
-            f"Frame {frame.frame_number:5d}: "
-            f"{frame.difference_score:.2f}"
+    return process_request(
+        ProcessingRequest(
+            mode=ProcessingMode.FULL_VIDEO,
+            source_path=video_path,
+            output_directory=Path(output_directory),
+            formats=formats,
+            progress_callback=progress_callback,
         )
+    )
+
+
+EXPORT_FORMATS = ("markdown", "csv", "excel")
+FORMAT_SELECTIONS = {
+    "1": "markdown",
+    "2": "csv",
+    "3": "excel",
+    **{name: name for name in EXPORT_FORMATS},
+}
+
+
+def normalize_export_formats(selection: str) -> list[str]:
+    """Convert CLI numbers or names into canonical exporter format names."""
+
+    entered = selection.strip().lower()
+    selections = [item.strip() for item in entered.split(",") if item.strip()]
+
+    if not selections:
+        return list(EXPORT_FORMATS)
+
+    normalized: set[str] = set()
+    invalid: list[str] = []
+
+    for selection_name in selections:
+        if selection_name == "all":
+            normalized.update(EXPORT_FORMATS)
+        elif selection_name in FORMAT_SELECTIONS:
+            normalized.add(FORMAT_SELECTIONS[selection_name])
+        else:
+            invalid.append(selection_name)
+
+    if invalid:
+        raise ValueError(f"Unsupported export format(s): {', '.join(invalid)}")
+
+    # Canonical ordering makes the confirmation and submitted request stable.
+    return [name for name in EXPORT_FORMATS if name in normalized]
+
+
+def _prompt_formats() -> list[str]:
+    """Prompt for the three supported exporter formats."""
+
+    print("Export formats:")
+    print("1. Markdown")
+    print("2. CSV")
+    print("3. Excel")
+    entered = input("Select formats [1,2,3]: ")
+    return normalize_export_formats(entered)
+
+
+def _prompt_request(mode: ProcessingMode | None = None) -> ProcessingRequest:
+    """Collect a full or resumed request for the existing CLI workflow."""
+
+    mode = mode or select_processing_mode()
+    if mode is ProcessingMode.FULL_VIDEO:
+        source_prompt = "Video: "
+    else:
+        source_prompt = "Checkpoint file or prior run folder: "
+
+    source_path = input(source_prompt).strip()
+    output_root = input("Output root [output]: ").strip() or "output"
+
+    return ProcessingRequest(
+        mode=mode,
+        source_path=source_path,
+        output_directory=Path(output_root),
+        formats=_prompt_formats(),
+        progress_callback=_print_progress,
+    )
+
+
+def _print_progress(progress: ProcessingProgress) -> None:
+    """Display shared pipeline progress without calculating timing locally."""
+
+    message = progress.message
+    if progress.current is not None and progress.total is not None:
+        item_label = "frame " if progress.stage in {"ocr", "reading_order"} else ""
+        message += f" — {item_label}{progress.current} of {progress.total}"
+
+    message += f" | elapsed {format_duration(progress.elapsed_seconds)}"
+    if progress.estimated_remaining_seconds is not None:
+        message += (
+            " | remaining "
+            f"{format_duration(progress.estimated_remaining_seconds)}"
+        )
+
+    print(message)
+
+
+def _prompt_batch_request(mode: CliProcessingMode) -> BatchProcessingRequest:
+    """Collect batch paths, one output root, and one set of export formats."""
+
+    if mode is CliProcessingMode.BATCH_FILES:
+        print("Enter video paths one per line. Submit a blank line when finished.")
+        source_paths: list[str] = []
+        while True:
+            source_path = input("Video path: ").strip()
+            if not source_path:
+                break
+            source_paths.append(source_path)
+    else:
+        folder = input("Video folder: ").strip()
+        source_paths = videos_in_folder(folder)
+
+    if not source_paths:
+        raise ValueError("Batch processing requires at least one video file.")
+
+    output_root = input("Output root [output]: ").strip() or "output"
+    return BatchProcessingRequest(
+        source_paths=source_paths,
+        output_directory=Path(output_root),
+        formats=_prompt_formats(),
+        progress_callback=_print_batch_progress,
+    )
+
+
+def _print_batch_progress(event: BatchProgress) -> None:
+    """Display shared item and stage progress without independent timing."""
+
+    prefix = (
+        f"Processing video {event.current_item} of {event.total_items}: "
+        f"{event.filename}"
+    )
+    print(prefix)
+    if event.progress is not None:
+        _print_progress(event.progress)
 
 
 def main():
-    """
-    Main application entry point.
-    """
+    """Run the shared processing service from the command line."""
 
-    start_stage = select_start_stage()
+    mode = select_cli_mode()
 
-    video = None
+    if isinstance(mode, CliProcessingMode):
+        request = _prompt_batch_request(mode)
+        print(f"Selected formats: {', '.join(request.formats)}")
+        result = process_batch(request)
+        print()
+        print(format_batch_summary(result))
+        return result
 
-    #
-    # ----------------------------
-    # Stage 1 - Video Analysis
-    # ----------------------------
-    #
-    if start_stage == "video":
+    request = _prompt_request(mode)
+    print(f"Selected formats: {', '.join(request.formats)}")
+    result = process_request(request)
+    print()
+    print(format_processing_summary(result))
 
-        video_path = input("Video: ")
-
-        video, fps = open_video(video_path)
-
-        print("Video opened successfully!")
-
-        candidate_frames = analyze_video(video, fps)
-
-        save_candidate_frames(
-            candidate_frames,
-            CANDIDATE_FRAME_FOLDER,
-        )
-
-        save_cache(
-            candidate_frames,
-            CANDIDATE_CACHE,
-        )
-
-    elif start_stage == "ocr":
-
-        print("Loading cached candidate frames...")
-
-        candidate_frames = load_cache(
-            CANDIDATE_CACHE,
-        )
-
-    elif start_stage == "reading_order":
-
-        print("Loading cached OCR results...")
-
-        candidate_frames = load_cache(
-            OCR_CACHE,
-        )
-
-    elif start_stage == "slide_consolidation":
-
-        print("Loading cached reading order...")
-
-        candidate_frames = load_cache(
-            READING_ORDER_CACHE,
-        )
-
-    elif start_stage == "export":
-
-        print("Export is not implemented yet.")
-        return
-
-    else:
-
-        print(f"Unknown stage: {start_stage}")
-        return
-
-    #
-    # ----------------------------
-    # OCR
-    # ----------------------------
-    #
-    if start_stage in ("video", "ocr"):
-
-        print("\n=== OCR ===")
-
-        candidate_frames = perform_ocr(candidate_frames)
-
-        save_cache(
-            candidate_frames,
-            OCR_CACHE,
-        )
-
-    #
-    # ----------------------------
-    # Reading Order
-    # ----------------------------
-    #
-    if start_stage in ("video", "ocr", "reading_order"):
-
-        print("\n=== Reading Order ===")
-
-        candidate_frames = reconstruct_reading_order(
-            candidate_frames,
-        )
-
-        save_cache(
-            candidate_frames,
-            READING_ORDER_CACHE,
-        )
-
-    #
-    # ----------------------------
-    # Slide Consolidation
-    # ----------------------------
-    #
-    print("\n=== Slide Consolidation ===")
-
-    slides = consolidate_slides(candidate_frames)
-
-    presentation = Presentation(
-        metadata={
-            "start_stage": start_stage,
-        },
-        slides=slides,
-        statistics={
-            "candidate_frames": len(candidate_frames),
-            "slides_detected": len(slides),
-        },
-    )
-
-    print_slide_report(slides)
-
-    #
-    # ----------------------------
-    # Export
-    # ----------------------------
-    #
-    saved_paths = export_all(
-        presentation,
-        Path("output"),
-        ["markdown", "csv"],
-    )
-
-    print("\n=== Export ===")
-    print("Export complete.")
-    print(f"Saved Markdown: {saved_paths['markdown']}")
-    print(f"Saved CSV: {saved_paths['csv']}")
-
-    #
-    # Cleanup
-    #
-    if video is not None:
-        video.release()
-
-    print_summary(candidate_frames)
-
-    return presentation
+    return result.presentation
 
 
 if __name__ == "__main__":

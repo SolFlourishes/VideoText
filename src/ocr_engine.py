@@ -36,7 +36,7 @@ def get_ocr_engine():
     return _ocr_engine
 
 
-def perform_ocr(candidate_frames):
+def perform_ocr(candidate_frames, progress_callback=None):
     """
     Perform OCR on all candidate frames.
 
@@ -98,6 +98,9 @@ def perform_ocr(candidate_frames):
             print(f"      Combined: {frame.combined_text}")
 
         print()
+
+        if progress_callback is not None:
+            progress_callback(index, len(candidate_frames))
 
     print("\nOCR Complete.\n")
 
