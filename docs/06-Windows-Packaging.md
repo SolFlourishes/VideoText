@@ -114,3 +114,37 @@ the override directory, first-run OCR is expected to require model download
 and a clean offline machine remains unproven. Model weights are not bundled,
 so that remains a release blocker. The missed final pending slide remains an
 application frame-selection defect, not a packaging defect.
+
+## Task 30B Terminal Stable-Slide Capture (2026-07-28)
+
+The original diagnosis was refined using the deterministic smoke video. Its
+three inter-slide difference scores (4.313, 5.295, and 5.237) are below the
+normal transition threshold of 10.0, so the final slide was not an unresolved
+pending transition. The first three candidates came from the five-second
+static-frame fallback. Slide 4 begins at frame 54 and the 72-frame, 5 fps
+video ends before another five seconds elapse.
+
+Frame selection now confirms a terminal stability window using the existing
+quiet-frame threshold and the existing five-frame stability requirement. It
+captures a visible terminal frame only when that window is cumulatively stable
+and it differs from the most recently saved candidate. The same save helper is
+used for normal transitions, static fallback, and EOF; later captures reject
+black frames and exact duplicate images. This preserves the normal transition
+threshold and avoids blanket last-frame capture.
+
+Source validation against `sample_videos/packaged_ocr_smoke.avi` now produces
+four candidate frames at 0, 25, 50, and 71 (0.0, 5.0, 10.0, and 14.2 seconds).
+The first three candidate PNGs are byte-for-byte identical to the prior
+packaged run. With the PaddleX model-source check disabled for this local
+validation (`PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True`), the source run
+completed OCR, reading order, consolidation, and all three exports. It
+produced four slides; Slide 4 is the expected `3. Export Markdown CSV Excel`
+content, and the progressive Slide 3 paragraph remains unchanged. Replay from
+the new `reading_order.pkl` produced four slides plus Markdown, CSV, and Excel;
+its Markdown is byte-for-byte identical to the normal source run.
+
+A fresh PyInstaller build was also started but this execution environment ended
+it after package assembly before the final executable bundle was written.
+Consequently, packaged OCR and packaged reading-order replay validation of the
+four-slide output remain pending. This is a packaging-validation blocker, not
+evidence of a selector failure.
