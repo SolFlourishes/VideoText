@@ -11,7 +11,13 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, scrolledtext, ttk
 
-from help_content import get_about_text, get_how_to_use_text
+from app_info import APP_COPYRIGHT, APP_NAME, APP_RELEASE, APP_STATUS
+from help_content import (
+    get_about_introduction,
+    get_about_sections,
+    get_about_text,
+    get_how_to_use_text,
+)
 from batch_processing import (
     BatchProcessingRequest,
     BatchProgress,
@@ -19,6 +25,15 @@ from batch_processing import (
     normalize_video_paths,
     process_batch,
     videos_in_folder,
+)
+from os_integration import open_folder
+from preferences import (
+    Preferences,
+    SUPPORTED_EXPORT_FORMATS,
+    load_preferences,
+    remember_folder,
+    save_preferences,
+    valid_initial_directory,
 )
 
 from processing_service import (
@@ -37,6 +52,8 @@ class VideoTextApp(ttk.Frame):
     def __init__(self, master: tk.Tk):
         super().__init__(master, padding=12)
         self.master = master
+        self.preferences = load_preferences()
+        self.preferences_dialog: tk.Toplevel | None = None
         self.video_path = tk.StringVar()
         self.run_mode = tk.StringVar(value="single")
         self.advanced_mode = tk.BooleanVar(value=False)
@@ -44,7 +61,10 @@ class VideoTextApp(ttk.Frame):
             value=ProcessingMode.FULL_VIDEO.value,
         )
         self.advanced_source_path = tk.StringVar()
-        self.output_folder = tk.StringVar()
+        saved_output_folder = self.preferences.default_output_folder
+        self.output_folder = tk.StringVar(
+            value=saved_output_folder if Path(saved_output_folder).is_dir() else ""
+        )
         self.status = tk.StringVar(value="Select a video and output folder.")
         self.progress_details = tk.StringVar()
         self.progress_value = tk.IntVar(value=0)
@@ -52,11 +72,16 @@ class VideoTextApp(ttk.Frame):
         self.message_queue = queue.Queue()
         self.batch_paths: list[str] = []
         self.batch_controls: list[ttk.Button] = []
+        # Keep the GUI's original all-formats default, then apply the saved
+        # startup preference once.  Later preference saves do not alter an
+        # in-progress session.
         self.format_options = {
             "markdown": tk.BooleanVar(value=True),
             "csv": tk.BooleanVar(value=True),
             "excel": tk.BooleanVar(value=True),
         }
+        for name, variable in self.format_options.items():
+            variable.set(name in self.preferences.default_export_formats)
 
         self._build_layout()
         self._build_menu()
@@ -65,6 +90,9 @@ class VideoTextApp(ttk.Frame):
         """Add concise in-app help without changing the processing layout."""
 
         menu_bar = tk.Menu(self.master)
+        edit_menu = tk.Menu(menu_bar, tearoff=False)
+        edit_menu.add_command(label="Preferences...", command=self._show_preferences)
+        menu_bar.add_cascade(label="Edit", menu=edit_menu)
         help_menu = tk.Menu(menu_bar, tearoff=False)
         help_menu.add_command(
             label="How to Use VideoText",
@@ -290,9 +318,134 @@ class VideoTextApp(ttk.Frame):
                 ("Video files", "*.mp4 *.avi *.mov *.mkv"),
                 ("All files", "*.*"),
             ],
+            initialdir=valid_initial_directory(
+                self.preferences.last_single_video_folder,
+            ),
         )
         if path:
             self.video_path.set(path)
+            self._remember_selected_folder("last_single_video_folder", Path(path).parent)
+
+    def _show_preferences(self) -> None:
+        """Open one editable preferences dialog without duplicating windows."""
+
+        if self.preferences_dialog is not None and self.preferences_dialog.winfo_exists():
+            self.preferences_dialog.lift()
+            self.preferences_dialog.focus_set()
+            return
+
+        dialog = tk.Toplevel(self.master)
+        self.preferences_dialog = dialog
+        dialog.title("Preferences")
+        dialog.transient(self.master)
+        dialog.resizable(True, False)
+        _center_dialog(dialog, self.master, preferred_width=560, preferred_height=360)
+        dialog.columnconfigure(1, weight=1)
+
+        folder_var = tk.StringVar(value=self.preferences.default_output_folder)
+        format_vars = {
+            name: tk.BooleanVar(value=name in self.preferences.default_export_formats)
+            for name in SUPPORTED_EXPORT_FORMATS
+        }
+        remember_var = tk.BooleanVar(value=self.preferences.remember_last_folders)
+        open_folder_var = tk.BooleanVar(
+            value=self.preferences.open_output_folder_after_completion,
+        )
+        validation_message = tk.StringVar()
+
+        ttk.Label(dialog, text="Default output folder").grid(
+            row=0, column=0, sticky="w", padx=12, pady=(12, 6),
+        )
+        ttk.Entry(dialog, textvariable=folder_var).grid(
+            row=0, column=1, sticky="ew", pady=(12, 6),
+        )
+
+        def browse_default_folder() -> None:
+            folder = filedialog.askdirectory(
+                title="Select Default Output Folder",
+                initialdir=valid_initial_directory(folder_var.get()),
+            )
+            if folder:
+                folder_var.set(folder)
+
+        ttk.Button(dialog, text="Browse...", command=browse_default_folder).grid(
+            row=0, column=2, padx=(8, 12), pady=(12, 6),
+        )
+
+        formats_frame = ttk.LabelFrame(dialog, text="Default export formats", padding=8)
+        formats_frame.grid(row=1, column=0, columnspan=3, sticky="ew", padx=12, pady=6)
+        for column, name in enumerate(SUPPORTED_EXPORT_FORMATS):
+            ttk.Checkbutton(
+                formats_frame,
+                text=name.title(),
+                variable=format_vars[name],
+            ).grid(row=0, column=column, padx=(0, 16), sticky="w")
+
+        ttk.Checkbutton(
+            dialog,
+            text="Remember last-used folders",
+            variable=remember_var,
+        ).grid(row=2, column=0, columnspan=3, sticky="w", padx=12, pady=6)
+        ttk.Checkbutton(
+            dialog,
+            text="Open output folder after successful completion",
+            variable=open_folder_var,
+        ).grid(row=3, column=0, columnspan=3, sticky="w", padx=12, pady=6)
+        ttk.Label(dialog, textvariable=validation_message, foreground="firebrick").grid(
+            row=4, column=0, columnspan=3, sticky="w", padx=12, pady=(0, 6),
+        )
+
+        button_frame = ttk.Frame(dialog)
+        button_frame.grid(row=5, column=0, columnspan=3, sticky="e", padx=12, pady=(0, 12))
+
+        def close_dialog() -> None:
+            self.preferences_dialog = None
+            dialog.destroy()
+
+        def restore_defaults() -> None:
+            defaults = Preferences()
+            folder_var.set(defaults.default_output_folder)
+            for name, variable in format_vars.items():
+                variable.set(name in defaults.default_export_formats)
+            remember_var.set(defaults.remember_last_folders)
+            open_folder_var.set(defaults.open_output_folder_after_completion)
+            validation_message.set("")
+
+        def save_dialog() -> None:
+            selected_formats = [
+                name for name, variable in format_vars.items() if variable.get()
+            ]
+            default_folder = folder_var.get().strip()
+            if not selected_formats:
+                validation_message.set("Select at least one default export format.")
+                return
+            if default_folder and not Path(default_folder).is_dir():
+                validation_message.set("Default output folder must be an existing directory.")
+                return
+
+            self.preferences.default_output_folder = default_folder
+            self.preferences.default_export_formats = selected_formats
+            self.preferences.remember_last_folders = remember_var.get()
+            self.preferences.open_output_folder_after_completion = open_folder_var.get()
+            save_preferences(self.preferences)
+            close_dialog()
+
+        ttk.Button(button_frame, text="Restore Defaults", command=restore_defaults).grid(
+            row=0, column=0, padx=(0, 8),
+        )
+        ttk.Button(button_frame, text="Cancel", command=close_dialog).grid(
+            row=0, column=1, padx=(0, 8),
+        )
+        save_button = ttk.Button(button_frame, text="Save", command=save_dialog)
+        save_button.grid(row=0, column=2)
+        dialog.protocol("WM_DELETE_WINDOW", close_dialog)
+        dialog.bind("<Escape>", lambda _event: close_dialog())
+        save_button.focus_set()
+
+    def _remember_selected_folder(self, field_name: str, folder: Path) -> None:
+        """Persist a valid dialog folder only when the preference enables it."""
+
+        remember_folder(self.preferences, field_name, folder)
 
     def _add_batch_button(self, text: str, command, row: int, column: int) -> None:
         button = ttk.Button(self.batch_frame, text=text, command=command)
@@ -337,17 +490,25 @@ class VideoTextApp(ttk.Frame):
                 ("Video files", "*.mp4 *.avi *.mov *.mkv"),
                 ("All files", "*.*"),
             ],
+            initialdir=valid_initial_directory(
+                self.preferences.last_batch_video_folder,
+            ),
         )
         if paths:
             self._add_batch_paths(list(paths))
+            self._remember_selected_folder("last_batch_video_folder", Path(paths[0]).parent)
 
     def _add_batch_folder(self) -> None:
-        folder = filedialog.askdirectory(title="Select Video Folder")
+        folder = filedialog.askdirectory(
+            title="Select Video Folder",
+            initialdir=valid_initial_directory(self.preferences.last_batch_folder),
+        )
         if not folder:
             return
 
         try:
             self._add_batch_paths(videos_in_folder(folder))
+            self._remember_selected_folder("last_batch_folder", Path(folder))
         except ValueError as error:
             self._set_status(str(error))
 
@@ -377,12 +538,26 @@ class VideoTextApp(ttk.Frame):
             control.configure(state=state)
 
     def _show_how_to_use(self) -> None:
-        self._show_help_dialog("How to Use VideoText", get_how_to_use_text())
+        self._show_help_dialog(
+            "How to Use VideoText",
+            get_how_to_use_text(),
+            formatted_guide=True,
+        )
 
     def _show_about(self) -> None:
-        self._show_help_dialog("About VideoText", get_about_text())
+        self._show_help_dialog(
+            f"About {APP_NAME}",
+            get_about_text(),
+            formatted_about=True,
+        )
 
-    def _show_help_dialog(self, title: str, content: str) -> None:
+    def _show_help_dialog(
+        self,
+        title: str,
+        content: str,
+        formatted_guide: bool = False,
+        formatted_about: bool = False,
+    ) -> None:
         """Display selectable, scrollable in-app help in a custom window."""
 
         dialog = tk.Toplevel(self.master)
@@ -400,7 +575,12 @@ class VideoTextApp(ttk.Frame):
             pady=12,
         )
         help_text.grid(row=0, column=0, sticky="nsew", padx=12, pady=(12, 6))
-        help_text.insert("1.0", content)
+        if formatted_guide:
+            _insert_formatted_user_guide(help_text, content)
+        elif formatted_about:
+            _insert_formatted_about(help_text, get_about_sections())
+        else:
+            help_text.insert("1.0", content)
         help_text.configure(state="disabled")
 
         button_frame = ttk.Frame(dialog)
@@ -416,9 +596,16 @@ class VideoTextApp(ttk.Frame):
         close_button.focus_set()
 
     def _browse_output_folder(self) -> None:
-        path = filedialog.askdirectory(title="Select Output Folder")
+        initial_directory = valid_initial_directory(
+            self.preferences.last_output_folder,
+        ) or valid_initial_directory(self.preferences.default_output_folder)
+        path = filedialog.askdirectory(
+            title="Select Output Folder",
+            initialdir=initial_directory,
+        )
         if path:
             self.output_folder.set(path)
+            self._remember_selected_folder("last_output_folder", Path(path))
 
     def _toggle_advanced_mode(self) -> None:
         """Show resume controls only when a user explicitly enables them."""
@@ -452,17 +639,30 @@ class VideoTextApp(ttk.Frame):
                     ("Video files", "*.mp4 *.avi *.mov *.mkv"),
                     ("All files", "*.*"),
                 ],
+                initialdir=valid_initial_directory(
+                    self.preferences.last_single_video_folder,
+                ),
             )
         else:
             path = filedialog.askopenfilename(
                 title="Select Checkpoint File (or cancel to choose a run folder)",
                 filetypes=[("Checkpoint files", "*.pkl"), ("All files", "*.*")],
+                initialdir=valid_initial_directory(
+                    self.preferences.last_checkpoint_folder,
+                ),
             )
             if not path:
                 path = filedialog.askdirectory(title="Select Prior Run Folder")
 
         if path:
             self.advanced_source_path.set(path)
+            folder = Path(path) if Path(path).is_dir() else Path(path).parent
+            preference_field = (
+                "last_single_video_folder"
+                if mode is ProcessingMode.FULL_VIDEO
+                else "last_checkpoint_folder"
+            )
+            self._remember_selected_folder(preference_field, folder)
 
     def _start_processing(self) -> None:
         if self.processing:
@@ -644,6 +844,7 @@ class VideoTextApp(ttk.Frame):
                             f"Saved {format_name.title()}: {path}"
                         )
                     self._finish_processing()
+                    self._open_completed_folder(payload.run_directory)
                     self._show_completion_dialog(payload)
 
                 elif message_type == "batch_complete":
@@ -654,6 +855,8 @@ class VideoTextApp(ttk.Frame):
                         )
                     self._finish_processing()
                     self._set_batch_controls_state("normal")
+                    if payload.successful_items:
+                        self._open_completed_folder(payload.log_path.parent)
                     self._show_batch_completion_dialog(payload)
 
                 elif message_type == "error":
@@ -721,6 +924,16 @@ class VideoTextApp(ttk.Frame):
         self.processing = False
         self.progress_bar.stop()
         self.process_button.configure(state="normal")
+
+    def _open_completed_folder(self, folder: Path) -> None:
+        """Optionally open one successful output folder without affecting success."""
+
+        if not getattr(self, "preferences", Preferences()).open_output_folder_after_completion:
+            return
+
+        warning = open_folder(folder)
+        if warning:
+            self._append_log(f"Warning: {warning}")
 
     def _set_status(self, message: str) -> None:
         self._reset_progress()
@@ -849,6 +1062,157 @@ class VideoTextApp(ttk.Frame):
         self.log_text.insert("end", message + "\n")
         self.log_text.see("end")
         self.log_text.configure(state="disabled")
+
+
+def _insert_formatted_user_guide(text_widget: tk.Text, content: str) -> None:
+    """Insert the built-in guide with reusable, accessible Text tags."""
+
+    text_widget.tag_configure(
+        "title",
+        font=("TkDefaultFont", 16, "bold"),
+        justify="center",
+        spacing1=6,
+        spacing3=18,
+    )
+    text_widget.tag_configure(
+        "heading",
+        font=("TkDefaultFont", 13, "bold"),
+        spacing1=16,
+        spacing3=6,
+    )
+    text_widget.tag_configure(
+        "subheading",
+        font=("TkDefaultFont", 11, "bold"),
+        spacing1=10,
+        spacing3=2,
+    )
+    text_widget.tag_configure("body", spacing3=7)
+    text_widget.tag_configure(
+        "bullet",
+        lmargin1=20,
+        lmargin2=36,
+        spacing3=3,
+    )
+    text_widget.tag_configure("code", font=("Courier New", 10), spacing3=8)
+    text_widget.tag_configure(
+        "note",
+        font=("TkDefaultFont", 10, "bold"),
+        lmargin1=12,
+        lmargin2=12,
+        spacing1=10,
+        spacing3=4,
+    )
+
+    headings = {
+        "What is VideoText?",
+        "Getting Started",
+        "Processing Stages",
+        "Export Formats",
+        "Batch Processing",
+        "Advanced Mode (Replay)",
+        "Output Folder Structure",
+        "Tips",
+        "Troubleshooting",
+    }
+    subheadings = {
+        "Markdown",
+        "CSV",
+        "Excel Translation Workbook",
+        "Slow OCR",
+        "Missing text",
+        "Replay availability",
+        "Output location",
+    }
+    code_block = False
+
+    for line in content.splitlines():
+        if line == "VideoText User Guide":
+            tag = "title"
+        elif line in headings:
+            tag = "heading"
+        elif line in subheadings:
+            tag = "subheading"
+        elif line == "Note":
+            tag = "note"
+        elif line == "output/":
+            code_block = True
+            tag = "code"
+        elif not line:
+            code_block = False
+            tag = "body"
+        elif code_block:
+            tag = "code"
+        elif line.startswith(("• ", "1. ", "2. ", "3. ", "4. ", "5. ")):
+            tag = "bullet"
+        else:
+            tag = "body"
+        text_widget.insert("end", line + "\n", tag)
+
+
+def _insert_formatted_about(
+    text_widget: tk.Text,
+    sections: tuple[tuple[str, tuple[str, ...]], ...],
+) -> None:
+    """Insert shared About content with a compact visual hierarchy."""
+
+    text_widget.tag_configure(
+        "about_title",
+        font=("TkDefaultFont", 16, "bold"),
+        justify="center",
+        spacing1=8,
+        spacing3=4,
+    )
+    text_widget.tag_configure(
+        "about_version",
+        font=("TkDefaultFont", 11, "bold"),
+        justify="center",
+        spacing3=2,
+    )
+    text_widget.tag_configure(
+        "about_status",
+        font=("TkDefaultFont", 10, "italic"),
+        justify="center",
+        spacing3=8,
+    )
+    text_widget.tag_configure(
+        "about_rule",
+        justify="center",
+        spacing3=12,
+    )
+    text_widget.tag_configure(
+        "about_heading",
+        font=("TkDefaultFont", 12, "bold"),
+        spacing1=10,
+        spacing3=5,
+    )
+    text_widget.tag_configure("about_body", spacing3=7)
+    text_widget.tag_configure(
+        "about_bullet",
+        lmargin1=20,
+        lmargin2=36,
+        spacing3=3,
+    )
+    text_widget.tag_configure(
+        "about_footer",
+        font=("TkDefaultFont", 9),
+        justify="center",
+        spacing1=12,
+    )
+
+    text_widget.insert("end", APP_NAME + "\n", "about_title")
+    version_text = f"Version {APP_RELEASE}"
+    text_widget.insert("end", version_text + "\n", "about_version")
+    text_widget.insert("end", APP_STATUS + "\n", "about_status")
+    text_widget.insert("end", "─" * 52 + "\n", "about_rule")
+    text_widget.insert("end", get_about_introduction() + "\n", "about_body")
+
+    for heading, items in sections:
+        text_widget.insert("end", heading + "\n", "about_heading")
+        for item in items:
+            tag = "about_bullet" if item.startswith("• ") else "about_body"
+            text_widget.insert("end", item + "\n", tag)
+
+    text_widget.insert("end", "\n" + APP_COPYRIGHT + "\n", "about_footer")
 
 
 def _center_dialog(

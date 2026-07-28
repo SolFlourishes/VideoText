@@ -2,56 +2,32 @@
 
 
 def get_how_to_use_text() -> str:
-    """Return the plain-language VideoText usage guide."""
+    """Return the content used by the formatted VideoText user guide."""
 
-    return """What VideoText does
+    return """VideoText User Guide
 
-VideoText extracts visible text from lecture and presentation videos. It selects stable candidate frames, applies OCR, reconstructs reading order and paragraphs, consolidates repeated slide content, and exports editable text files.
+What is VideoText?
 
-VideoText creates a reconstructed editable document, not a guaranteed verbatim transcript. Review results carefully, especially for unusual layouts, handwritten content, low-resolution video, animation, overlapping text, uncommon symbols, and highly unstructured slides.
+VideoText extracts readable text from presentation videos and produces documents that can be reviewed, edited, and translated.
 
-What to expect during processing
-
-VideoText reports these stages:
-
-• Selecting stable frames
-• Running OCR
-• Reconstructing paragraphs
-• Consolidating slides
-• Exporting files
-
-OCR is often the longest stage. Processing time varies with video length, the number of candidate frames, image quality, the amount and complexity of visible text, and computer performance.
-
-Normal Mode
+Getting Started
 
 1. Select a video.
-2. Select an output folder.
+2. Choose an output folder.
 3. Select export formats.
-4. Start processing.
-5. Review the completion summary and exported files.
+4. Click Start.
+5. Review the exported files.
 
-Advanced Mode
+Processing Stages
 
-Advanced Mode resumes from a previously saved checkpoint without rerunning earlier stages. Available resume points are Candidate frames cache, OCR results cache, and Reading-order cache.
+Candidate Frames — finds stable video frames that are useful for text extraction.
+OCR — reads visible text from each candidate frame.
+Reading Order — puts detected text into its intended visual order.
+Paragraph Reconstruction — joins related lines into readable paragraphs.
+Slide Consolidation — combines evidence from repeated views of a slide.
+Exports — writes the selected review documents.
 
-Select either the expected .pkl checkpoint directly or a prior run folder containing the cache directory. A resumed run creates a new replay folder and does not overwrite the original run.
-
-Output structure
-
-output/
-    sample/
-        candidate_frames/
-        cache/
-            candidate_frames.pkl
-            ocr_results.pkl
-            reading_order.pkl
-        sample.md
-        sample.csv
-        sample.xlsx
-
-Repeated runs create unique folders such as sample_2, sample_replay, and sample_replay_2.
-
-Export formats
+Export Formats
 
 Markdown
 Readable, editable text for notes, documents, and text editors.
@@ -59,40 +35,99 @@ Readable, editable text for notes, documents, and text editors.
 CSV
 Simple row-based data for analysis, import, and lightweight editing.
 
-Excel
-A formatted workbook for review, translation, annotation, and structured editing. Each reconstructed paragraph remains in one row, with continuation lines formatted for readability.
+Excel Translation Workbook
+A formatted workbook for review and translation. Translators can edit the blank Translated Text column while keeping the reconstructed original text available for reference.
 
-Reviewing results
+Batch Processing
 
-Check slide order, headings, line breaks, unusual characters, missing or duplicated content, and layouts with multiple columns or floating text.
+Batch Processing handles multiple videos in one selected output location. Each video receives its own workspace, processing continues after an individual failure, and a batch log records the outcome of every item.
+
+Advanced Mode (Replay)
+
+Advanced Mode resumes from Candidate frames cache, OCR results cache, or Reading-order cache. It is useful for fast replay when changing exports or formatting, rather than for normal first-time processing.
+
+Note
+Replay processing skips OCR and is therefore much faster than processing the original video again.
+
+Output Folder Structure
+
+output/
+    lecture/
+        candidate_frames/
+        cache/
+            candidate_frames.pkl
+            ocr_results.pkl
+            reading_order.pkl
+        lecture.xlsx
+        lecture.csv
+        lecture.md
+
+Tips
+
+• Review OCR output, especially unusual characters and complex slide layouts.
+• Replay is much faster than full processing.
+• Use Excel for translation and review.
+• Batch processing is useful for multiple lectures.
 
 Troubleshooting
 
-Locked Excel files
-Close the workbook before exporting again.
-
-Missing checkpoint
-Select the expected .pkl file or the prior run folder that contains cache/.
-
 Slow OCR
-This may be normal for text-heavy or long videos. Use the progress display to monitor the run.
+OCR is often the longest stage; use the progress display to monitor it.
 
-Poor OCR output
-Resolution, compression, animation, contrast, and unusual fonts can affect results.
+Missing text
+Review the source video and exported text. Resolution, animation, contrast, and unusual fonts can affect OCR.
 
-Failed resumed run
-Verify that the selected cache matches the selected Advanced Mode stage.
+Replay availability
+Select the matching .pkl checkpoint or a prior run folder containing cache/.
+
+Output location
+Each run is saved in its own folder beneath the output location you selected.
 """
 
 
 def get_about_text() -> str:
     """Return the concise VideoText application description."""
 
-    return """VideoText
+    sections = get_about_sections()
+    return "\n\n".join(
+        "\n".join((heading, *items)) for heading, items in sections
+    )
 
-VideoText reconstructs editable text from lecture and presentation videos.
 
-Processing occurs locally on your computer. Output and cache files are stored beneath the output folder you select.
+def get_about_sections() -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """Return concise About prose separately from its Tkinter presentation."""
 
-VideoText does not require administrator rights, create registry entries, or use background services.
-"""
+    return (
+        (
+            "What VideoText Does",
+            (
+                "VideoText processes lecture and presentation videos and "
+                "reconstructs readable, editable text for review and translation.",
+            ),
+        ),
+        (
+            "Privacy and Storage",
+            (
+                "• Processing occurs locally on this computer.",
+                "• Processing outputs and caches stay beneath the selected output folder.",
+                "• Small user preferences are stored in the user's application-data folder.",
+            ),
+        ),
+        (
+            "Application Information",
+            (
+                "• VideoText does not require administrator rights.",
+                "• VideoText does not create Windows registry entries.",
+                "• VideoText does not install or run background services.",
+            ),
+        ),
+    )
+
+
+def get_about_introduction() -> str:
+    """Return the short description displayed below the About title area."""
+
+    return (
+        "VideoText turns presentation videos into readable, editable documents "
+        "for review and translation."
+    )
