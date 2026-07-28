@@ -198,57 +198,6 @@ def find_matching_paragraph(paragraphs, candidate):
     return None
 
 
-def merge_or_add_paragraph(paragraphs, candidate):
-    """
-    Add a paragraph or replace an existing one with a more complete version.
-    """
-
-    candidate_text = normalize_text(candidate.text)
-
-    match = find_matching_paragraph(
-        paragraphs,
-        candidate,
-    )
-
-    if match is None:
-        paragraphs.append(deepcopy(candidate))
-        return
-
-    index = match
-    paragraph = paragraphs[index]
-    existing_text = normalize_text(paragraph.text)
-
-    #
-    # Exact duplicate.
-    #
-    if existing_text == candidate_text:
-        return
-
-    #
-    # Candidate is more complete.
-    #
-    if (
-        candidate_text.startswith(existing_text)
-        and len(candidate_text) > len(existing_text)
-    ):
-        paragraphs[index] = deepcopy(candidate)
-        return
-
-    #
-    # Existing paragraph is already more complete.
-    #
-    if (
-        existing_text.startswith(candidate_text)
-        and len(existing_text) >= len(candidate_text)
-    ):
-        return
-
-    #
-    # Fallback (should rarely occur).
-    #
-    paragraphs.append(deepcopy(candidate))
-
-
 def is_same_slide(previous_text: str, current_text: str) -> bool:
     """
     Determine whether two frames belong to the same slide.
