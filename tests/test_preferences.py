@@ -78,6 +78,14 @@ class PreferencesTests(unittest.TestCase):
 
         self.assertEqual(load_preferences(self.preferences_file), Preferences())
 
+    def test_invalid_utf8_preferences_fall_back_without_modifying_the_file(self):
+        self.preferences_file.parent.mkdir(parents=True)
+        original_bytes = b"\xff\xfepreferences"
+        self.preferences_file.write_bytes(original_bytes)
+
+        self.assertEqual(load_preferences(self.preferences_file), Preferences())
+        self.assertEqual(self.preferences_file.read_bytes(), original_bytes)
+
     def test_appdata_storage_path_is_outside_project_and_output(self):
         app_data = self.root / "AppData" / "Roaming"
         with patch.dict(os.environ, {"APPDATA": str(app_data)}, clear=False):

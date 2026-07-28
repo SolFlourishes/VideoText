@@ -85,7 +85,7 @@ def load_preferences(path: Path | None = None) -> Preferences:
     try:
         with path.open(encoding="utf-8") as preferences_file:
             return _preferences_from_data(json.load(preferences_file))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return Preferences()
 
 

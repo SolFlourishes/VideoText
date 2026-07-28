@@ -49,6 +49,10 @@ Advanced Mode resumes from Candidate frames cache, OCR results cache, or Reading
 Note
 Replay processing skips OCR and is therefore much faster than processing the original video again.
 
+Only open replay cache files created by VideoText on a trusted computer.
+Replay caches use Python pickle files, which can run code when opened, so do
+not use cache files from unknown or untrusted sources.
+
 Output Folder Structure
 
 output/

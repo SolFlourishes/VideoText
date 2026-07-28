@@ -102,6 +102,13 @@ class HelpAboutTests(unittest.TestCase):
     def test_user_guide_is_independent_of_the_current_release(self):
         self.assertNotIn(APP_RELEASE, get_how_to_use_text())
 
+    def test_user_guide_warns_that_replay_caches_must_be_trusted(self):
+        content = get_how_to_use_text().lower()
+
+        self.assertIn("replay cache files created by videotext", content)
+        self.assertIn("trusted computer", content)
+        self.assertIn("pickle", content)
+
     def test_about_uses_shared_metadata_and_semantic_formatting_tags(self):
         source = Path(gui.__file__).read_text(encoding="utf-8")
 
