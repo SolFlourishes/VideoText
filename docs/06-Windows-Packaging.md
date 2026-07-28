@@ -143,8 +143,24 @@ content, and the progressive Slide 3 paragraph remains unchanged. Replay from
 the new `reading_order.pkl` produced four slides plus Markdown, CSV, and Excel;
 its Markdown is byte-for-byte identical to the normal source run.
 
-A fresh PyInstaller build was also started but this execution environment ended
-it after package assembly before the final executable bundle was written.
-Consequently, packaged OCR and packaged reading-order replay validation of the
-four-slide output remain pending. This is a packaging-validation blocker, not
-evidence of a selector failure.
+## Task 30C Packaged Terminal-Slide Validation (2026-07-28)
+
+A fresh PyInstaller build completed normally with Python 3.12.10 from the
+project virtual environment. The build took approximately 4 minutes 48 seconds
+and created `dist\VideoText\VideoText.exe` (about 231 MiB) with a distribution
+folder of about 819 MiB. The only collection warnings were the pre-existing
+optional PaddleX serving-plugin and Paddle TensorRT warnings.
+
+The rebuilt executable processed `packaged_ocr_smoke.avi` in 36 seconds. Its
+normal run created four candidate PNGs at frames 0, 25, 50, and 71, all three
+checkpoints, Markdown, CSV, and Excel. The consolidated presentation has four
+slides. Slide 4 (`3. Export Markdown CSV Excel`) is present in every export;
+Slides 1--3 and the progressive Slide 3 paragraph remain unchanged. The GUI
+showed its completion summary and remained responsive during the run.
+
+Advanced Mode replay from that packaged run's `reading_order.pkl` loaded four
+frames, skipped frame analysis, OCR, and reading order, and created a distinct
+`packaged_ocr_smoke_replay_2` workspace containing Markdown, CSV, and Excel.
+Its Markdown and CSV are byte-for-byte identical to the packaged normal run,
+and its Excel workbook includes Slide 4. The terminal stable-slide defect is
+therefore resolved in both packaged full-video and replay processing.
