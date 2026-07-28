@@ -1,0 +1,2 @@
+# Build-only dependency for the reproducible Windows executable.
+pyinstaller==6.21.0
