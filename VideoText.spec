@@ -8,6 +8,7 @@ from PyInstaller.utils.hooks import (
     collect_data_files,
     collect_dynamic_libs,
     collect_submodules,
+    copy_metadata,
 )
 
 
@@ -66,6 +67,20 @@ datas += collect_data_files("paddle", include_py_files=False)
 binaries = collect_dynamic_libs("paddle")
 binaries += collect_dynamic_libs("paddlex")
 binaries += collect_dynamic_libs("cv2")
+
+# PaddleX validates OCR-core dependencies through importlib.metadata at runtime.
+# PyInstaller collects the corresponding modules, but not their distribution
+# metadata by default, which makes a frozen PaddleX OCR pipeline reject the
+# otherwise bundled dependencies.
+for distribution in (
+    "imagesize",
+    "opencv-contrib-python",
+    "pyclipper",
+    "pypdfium2",
+    "python-bidi",
+    "shapely",
+):
+    datas += copy_metadata(distribution)
 
 
 a = Analysis(
