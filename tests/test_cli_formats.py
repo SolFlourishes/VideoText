@@ -2,6 +2,7 @@
 
 import builtins
 import io
+import os
 import pickle
 import sys
 import tempfile
@@ -20,6 +21,52 @@ from models import Presentation
 
 
 class CliFormatTests(unittest.TestCase):
+    def test_blank_output_prompt_uses_an_absolute_documents_default(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            home = Path(temporary_directory) / "Home With Spaces"
+            with (
+                patch("os_integration.Path.home", return_value=home),
+                patch.object(
+                    builtins,
+                    "input",
+                    side_effect=["video.mp4", "", "1"],
+                ),
+            ):
+                request = main._prompt_request(ProcessingMode.FULL_VIDEO)
+
+        self.assertEqual(
+            request.output_directory,
+            (home / "Documents" / "VideoText Output").resolve(),
+        )
+        self.assertTrue(request.output_directory.is_absolute())
+
+    def test_default_output_does_not_depend_on_the_current_working_directory(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            home = root / "home"
+            original_directory = Path.cwd()
+            try:
+                os.chdir(root)
+                with patch("os_integration.Path.home", return_value=home):
+                    output_root = main.resolve_cli_output_root(None)
+            finally:
+                os.chdir(original_directory)
+
+        self.assertEqual(output_root, (home / "Documents" / "VideoText Output").resolve())
+
+    def test_explicit_output_path_is_resolved_and_preserved(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            explicit_path = Path(temporary_directory) / "Folder With Spaces"
+            output_root = main.resolve_cli_output_root(explicit_path)
+
+        self.assertEqual(output_root, explicit_path.resolve())
+
+    def test_cli_help_describes_the_documents_default(self):
+        help_text = main.build_cli_argument_parser().format_help()
+
+        self.assertIn("--output", help_text)
+        self.assertIn("Documents/VideoText Output", help_text)
+
     def test_markdown_selection_normalizes_to_markdown(self):
         self.assertEqual(main.normalize_export_formats("1"), ["markdown"])
 
@@ -89,8 +136,35 @@ class CliFormatTests(unittest.TestCase):
             ):
                 resume_request = main._prompt_request()
 
-            self.assertEqual(full_request.formats, ["markdown", "excel"])
-            self.assertEqual(resume_request.formats, full_request.formats)
+        self.assertEqual(full_request.formats, ["markdown", "excel"])
+        self.assertEqual(resume_request.formats, full_request.formats)
+
+    def test_replay_and_batch_requests_use_the_resolved_output_root(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_root = main.resolve_cli_output_root(
+                Path(temporary_directory) / "Output With Spaces",
+            )
+            with patch.object(
+                builtins,
+                "input",
+                side_effect=["checkpoint.pkl", "1"],
+            ):
+                replay_request = main._prompt_request(
+                    ProcessingMode.READING_ORDER,
+                    output_root,
+                )
+            with patch.object(
+                builtins,
+                "input",
+                side_effect=["first.mp4", "", "2"],
+            ):
+                batch_request = main._prompt_batch_request(
+                    main.CliProcessingMode.BATCH_FILES,
+                    output_root,
+                )
+
+        self.assertEqual(replay_request.output_directory, output_root)
+        self.assertEqual(batch_request.output_directory, output_root)
 
     def test_main_confirms_the_final_formats_before_processing(self):
         captured = io.StringIO()
