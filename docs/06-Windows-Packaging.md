@@ -83,3 +83,34 @@ behaviors, not frozen-build-specific changes.
 Offline operation on a clean machine remains unproven because model weights
 are not bundled. A cache-backed offline confirmation and the replay checks
 remain required before release readiness can be claimed.
+
+## Task 29D Replay and Offline Validation (2026-07-28)
+
+The packaged executable successfully replayed only trusted checkpoints from
+the Task 29C workspace. Each replay recreated Markdown, CSV, and the Excel
+translation workbook in a distinct `_replay` workspace, and Markdown/CSV
+matched the normal run byte-for-byte.
+
+| Starting checkpoint | Replay workspace | Approximate elapsed time | Skipped stages | Executed stages |
+| --- | --- | ---: | --- | --- |
+| `candidate_frames.pkl` | `output\\task29d_candidate\\packaged_ocr_smoke_replay` | 32 seconds | Stable-frame analysis | OCR through export |
+| `ocr_results.pkl` | `output\\task29d_ocr\\packaged_ocr_smoke_replay` | under 1 second | Stable-frame analysis and OCR | Reading order through export |
+| `reading_order.pkl` | `output\\task29d_reading\\packaged_ocr_smoke_replay` | under 1 second | Stable-frame analysis, OCR, and reading order | Reconstruction, consolidation, presentation, and export |
+
+The packaged full-video smoke test was also run while Wi-Fi was temporarily
+disabled. Using the unchanged pre-existing cache at `C:\\Users\\sol\\.paddlex`,
+PaddleOCR initialized and processed the video in 25 seconds. It created the
+three pipeline checkpoints, three candidate-frame PNG files, Markdown, CSV,
+and Excel in `output\\task29d_offline\\packaged_ocr_smoke`; Markdown and CSV
+matched the prior normal run byte-for-byte. No download was possible during
+this run and no model-download error appeared. Therefore, **offline operation
+with pre-existing cached models succeeds**.
+
+PaddleX 3.3.13 supports the `PADDLE_PDX_CACHE_HOME` environment variable.
+A future clean-machine simulation can set it to a new empty temporary
+directory before starting VideoText, leaving `C:\\Users\\sol\\.paddlex`
+untouched. That simulation was intentionally not run here: with no models in
+the override directory, first-run OCR is expected to require model download
+and a clean offline machine remains unproven. Model weights are not bundled,
+so that remains a release blocker. The missed final pending slide remains an
+application frame-selection defect, not a packaging defect.
