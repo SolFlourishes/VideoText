@@ -23,7 +23,7 @@ from batch_processing import (
     videos_in_folder,
 )
 from menu import CliProcessingMode
-from models import Presentation
+from models import Presentation, Slide, TextParagraph, TextType
 from processing_service import ProcessingMode, ProcessingProgress, ProcessingResult
 
 
@@ -202,6 +202,63 @@ class BatchProcessingTests(unittest.TestCase):
         batch_handler = batch_handler.split('elif message_type == "error"', maxsplit=1)[0]
         self.assertIn("_show_batch_completion_dialog(payload)", batch_handler)
         self.assertNotIn("_show_completion_dialog(payload)", batch_handler)
+
+    def test_consolidated_excel_uses_one_batch_workbook_and_skips_per_video_excel(self):
+        paths = ["first.mp4", "second.mp4"]
+
+        def process(request):
+            self.assertEqual(request.formats, ["markdown"])
+            result = self.processing_result(request.source_path)
+            return ProcessingResult(
+                presentation=Presentation(slides=[Slide(
+                    slide_number=1,
+                    start_time=0,
+                    end_time=1,
+                    paragraphs=[TextParagraph("Text", text_type=TextType.BODY)],
+                )]),
+                run_directory=result.run_directory,
+                exported_paths=result.exported_paths,
+                mode=result.mode,
+                source_path=result.source_path,
+                resolved_checkpoint_path=None,
+                frame_count=1,
+                elapsed_seconds=1,
+            )
+
+        request = BatchProcessingRequest(
+            source_paths=paths,
+            output_directory=self.root / "output",
+            formats=["markdown", "excel"],
+            consolidated_excel=True,
+        )
+        with patch.object(batch_processing, "process_request", side_effect=process):
+            result = process_batch(request)
+
+        self.assertIsNotNone(result.consolidated_excel_path)
+        self.assertTrue(Path(result.consolidated_excel_path).is_file())
+        self.assertIn("Consolidated Excel:", format_batch_summary(result))
+
+    def test_all_failed_consolidated_batch_leaves_no_empty_workbook(self):
+        request = BatchProcessingRequest(
+            source_paths=["broken.mp4"],
+            output_directory=self.root / "output",
+            formats=["excel"],
+            consolidated_excel=True,
+        )
+        with patch.object(batch_processing, "process_request", side_effect=ValueError("bad video")):
+            result = process_batch(request)
+
+        self.assertIsNone(result.consolidated_excel_path)
+        self.assertFalse((self.root / "output" / "Batch VideoText Export.xlsx").exists())
+
+    def test_gui_exposes_batch_excel_choice_only_with_excel_selection(self):
+        source = Path(gui.__file__).read_text(encoding="utf-8")
+
+        self.assertIn("self.batch_excel_frame", source)
+        self.assertIn("One workbook per video", source)
+        self.assertIn("One workbook for the entire batch", source)
+        self.assertIn("_update_batch_excel_options", source)
+        self.assertIn("consolidated_excel=self.batch_excel_consolidated.get()", source)
 
 
 if __name__ == "__main__":

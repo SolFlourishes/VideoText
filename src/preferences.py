@@ -8,6 +8,7 @@ import tempfile
 
 
 SUPPORTED_EXPORT_FORMATS = ("markdown", "csv", "excel")
+RECENT_SOURCE_LIMIT = 10
 
 
 @dataclass
@@ -25,6 +26,7 @@ class Preferences:
     last_batch_folder: str = ""
     last_checkpoint_folder: str = ""
     last_output_folder: str = ""
+    recent_sources: list[str] = field(default_factory=list)
 
 
 def preferences_path() -> Path:
@@ -63,6 +65,13 @@ def _preferences_from_data(data: object) -> Preferences:
         value = data.get(field_name)
         if isinstance(value, bool):
             setattr(preferences, field_name, value)
+
+    recent_sources = data.get("recent_sources")
+    if isinstance(recent_sources, list):
+        preferences.recent_sources = [
+            source for source in recent_sources
+            if isinstance(source, str) and source.strip() and not _is_temporary_source(source)
+        ][:RECENT_SOURCE_LIMIT]
 
     for field_name in (
         "last_single_video_folder",
@@ -120,6 +129,34 @@ def reset_preferences(path: Path | None = None) -> Preferences:
     preferences = Preferences()
     save_preferences(preferences, path)
     return preferences
+
+
+def add_recent_source(preferences: Preferences, source: str) -> None:
+    """Remember a user-selected persistent source, newest first and unique."""
+
+    source = source.strip()
+    if not source or _is_temporary_source(source):
+        return
+    normalized = os.path.normcase(os.path.normpath(source)) if "://" not in source else source.casefold()
+    existing = [
+        item for item in preferences.recent_sources
+        if (
+            os.path.normcase(os.path.normpath(item)) if "://" not in item else item.casefold()
+        ) != normalized
+    ]
+    preferences.recent_sources = [source, *existing][:RECENT_SOURCE_LIMIT]
+
+
+def clear_recent_sources(preferences: Preferences) -> None:
+    """Forget remembered sources without altering other preferences."""
+
+    preferences.recent_sources = []
+
+
+def _is_temporary_source(source: str) -> bool:
+    """Exclude internal downloaded-video workspaces from user-facing history."""
+
+    return "videotext-download-" in source.lower()
 
 
 def remember_folder(preferences: Preferences, field_name: str, path: str | Path) -> None:

@@ -15,6 +15,9 @@ import gui
 from os_integration import open_folder
 from preferences import (
     Preferences,
+    RECENT_SOURCE_LIMIT,
+    add_recent_source,
+    clear_recent_sources,
     load_preferences,
     preferences_path,
     remember_folder,
@@ -107,6 +110,27 @@ class PreferencesTests(unittest.TestCase):
             remember_folder(preferences, "last_single_video_folder", self.root)
         self.assertEqual(preferences.last_single_video_folder, str(folder))
         self.assertIsNone(valid_initial_directory(str(self.root / "missing")))
+
+    def test_recent_sources_are_persistent_newest_first_unique_and_limited(self):
+        preferences = Preferences()
+        add_recent_source(preferences, "D:/Videos/first.mp4")
+        add_recent_source(preferences, "https://example.test/video.mp4")
+        add_recent_source(preferences, "D:/Videos/first.mp4")
+        for index in range(RECENT_SOURCE_LIMIT + 2):
+            add_recent_source(preferences, f"D:/Videos/{index}.mp4")
+
+        self.assertEqual(preferences.recent_sources[0], f"D:/Videos/{RECENT_SOURCE_LIMIT + 1}.mp4")
+        self.assertEqual(len(preferences.recent_sources), RECENT_SOURCE_LIMIT)
+        self.assertNotIn("videotext-download-", " ".join(preferences.recent_sources).lower())
+        save_preferences(preferences, self.preferences_file)
+        self.assertEqual(load_preferences(self.preferences_file).recent_sources, preferences.recent_sources)
+        clear_recent_sources(preferences)
+        self.assertEqual(preferences.recent_sources, [])
+
+    def test_temporary_recent_sources_are_not_saved(self):
+        preferences = Preferences()
+        add_recent_source(preferences, "C:/Temp/videotext-download-123/video.mp4")
+        self.assertEqual(preferences.recent_sources, [])
 
     def test_gui_preferences_validation_and_startup_defaults_are_present(self):
         source = Path(gui.__file__).read_text(encoding="utf-8")

@@ -7,6 +7,8 @@ from pathlib import Path
 from time import monotonic
 from typing import Callable, Optional
 
+from batch_excel_exporter import export_batch_excel
+
 from processing_service import (
     ProcessingMode,
     ProcessingProgress,
@@ -27,6 +29,7 @@ class BatchProcessingRequest:
     source_paths: list[str]
     output_directory: Path
     formats: list[str]
+    consolidated_excel: bool = False
     progress_callback: Optional[Callable[["BatchProgress"], None]] = None
 
 
@@ -58,6 +61,9 @@ class BatchProcessingResult:
     items: list[BatchItemResult]
     log_path: Path
     elapsed_seconds: float
+    output_directory: Path = field(default_factory=Path)
+    formats: list[str] = field(default_factory=list)
+    consolidated_excel_path: str | None = None
 
     @property
     def successful_items(self) -> list[BatchItemResult]:
@@ -176,6 +182,7 @@ def process_batch(request: BatchProcessingRequest) -> BatchProcessingResult:
         source_paths=source_paths,
         output_directory=Path(request.output_directory),
         formats=list(request.formats),
+        consolidated_excel=request.consolidated_excel,
         progress_callback=request.progress_callback,
     )
     log_path = _create_batch_log_path(request.output_directory)
@@ -197,11 +204,15 @@ def process_batch(request: BatchProcessingRequest) -> BatchProcessingResult:
         _notify(request, index, filename, None)
 
         try:
+            item_formats = [
+                format_name for format_name in request.formats
+                if not (request.consolidated_excel and format_name == "excel")
+            ]
             result = process_request(ProcessingRequest(
                 mode=ProcessingMode.FULL_VIDEO,
                 source_path=source_path,
                 output_directory=request.output_directory,
-                formats=request.formats,
+                formats=item_formats,
                 progress_callback=lambda progress, item_index=index, item_name=filename: _notify(
                     request,
                     item_index,
@@ -229,6 +240,22 @@ def process_batch(request: BatchProcessingRequest) -> BatchProcessingResult:
         _log_item(log_path, item)
 
     elapsed_seconds = max(0.0, monotonic() - batch_started)
+    consolidated_excel_path = None
+    if request.consolidated_excel and "excel" in request.formats:
+        presentations = [
+            (item.source_path, item.processing_result.presentation)
+            for item in items
+            if (
+                item.success
+                and item.processing_result is not None
+                and item.processing_result.presentation.slides
+            )
+        ]
+        if presentations:
+            consolidated_excel_path = export_batch_excel(
+                presentations,
+                request.output_directory / "Batch VideoText Export.xlsx",
+            )
     completed_at = datetime.now().strftime("%Y-%m-%d %H:%M")
     _append_log(log_path, [
         "",
@@ -236,9 +263,20 @@ def process_batch(request: BatchProcessingRequest) -> BatchProcessingResult:
         f"Completed: {sum(item.success for item in items)}",
         f"Failed: {sum(not item.success for item in items)}",
         f"Total elapsed: {format_duration(elapsed_seconds)}",
+        *(
+            [f"Consolidated Excel: {consolidated_excel_path}"]
+            if consolidated_excel_path else []
+        ),
     ])
 
-    return BatchProcessingResult(items, log_path, elapsed_seconds)
+    return BatchProcessingResult(
+        items,
+        log_path,
+        elapsed_seconds,
+        request.output_directory,
+        list(request.formats),
+        consolidated_excel_path,
+    )
 
 
 def format_batch_summary(result: BatchProcessingResult) -> str:
@@ -251,6 +289,8 @@ def format_batch_summary(result: BatchProcessingResult) -> str:
         f"Completed: {len(result.successful_items)}",
         f"Failed: {len(result.failed_items)}",
         f"Total elapsed: {format_duration(result.elapsed_seconds)}",
+        f"Export formats: {', '.join(result.formats)}",
+        f"Output folder: {result.output_directory}",
         f"Batch log: {result.log_path}",
     ]
 
@@ -264,5 +304,7 @@ def format_batch_summary(result: BatchProcessingResult) -> str:
                 f"- {Path(item.source_path).name}",
                 f"  {item.error_message}",
             ))
+    if result.consolidated_excel_path:
+        lines.extend(("", f"Consolidated Excel: {result.consolidated_excel_path}"))
 
     return "\n".join(lines)

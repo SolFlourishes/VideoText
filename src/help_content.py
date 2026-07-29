@@ -46,6 +46,12 @@ Batch Processing
 
 Batch Processing handles multiple videos in one selected output location. Each video receives its own workspace, processing continues after an individual failure, and a batch log records the outcome of every item.
 
+When Excel is selected for a batch, choose either one workbook per video or one consolidated workbook with a worksheet for each successful video.
+
+Recent Sources
+
+File > Recent Sources remembers recently used local videos, direct video URLs, and batch folders. Choose Clear Recent Sources from the same menu to remove them.
+
 Advanced Mode (Replay)
 
 Advanced Mode resumes from Candidate frames cache, OCR results cache, or Reading-order cache. It is useful for fast replay when changing exports or formatting, rather than for normal first-time processing.

@@ -35,6 +35,8 @@ from preferences import (
     remember_folder,
     save_preferences,
     valid_initial_directory,
+    add_recent_source,
+    clear_recent_sources,
 )
 
 from processing_service import (
@@ -75,6 +77,7 @@ class VideoTextApp(ttk.Frame):
         self.processing = False
         self.message_queue = queue.Queue()
         self.batch_paths: list[str] = []
+        self.batch_excel_consolidated = tk.BooleanVar(value=False)
         self.batch_controls: list[ttk.Button] = []
         # Keep the GUI's original all-formats default, then apply the saved
         # startup preference once.  Later preference saves do not alter an
@@ -94,6 +97,11 @@ class VideoTextApp(ttk.Frame):
         """Add concise in-app help without changing the processing layout."""
 
         menu_bar = tk.Menu(self.master)
+        file_menu = tk.Menu(menu_bar, tearoff=False)
+        self.recent_sources_menu = tk.Menu(file_menu, tearoff=False)
+        file_menu.add_cascade(label="Recent Sources", menu=self.recent_sources_menu)
+        file_menu.add_command(label="Clear Recent Sources", command=self._clear_recent_sources)
+        menu_bar.add_cascade(label="File", menu=file_menu)
         edit_menu = tk.Menu(menu_bar, tearoff=False)
         edit_menu.add_command(label="Preferences...", command=self._show_preferences)
         menu_bar.add_cascade(label="Edit", menu=edit_menu)
@@ -112,6 +120,7 @@ class VideoTextApp(ttk.Frame):
         )
         menu_bar.add_cascade(label="Help", menu=help_menu)
         self.master.configure(menu=menu_bar)
+        self._refresh_recent_sources_menu()
 
     def _build_layout(self) -> None:
         self.master.title("VideoText")
@@ -247,6 +256,20 @@ class VideoTextApp(ttk.Frame):
         self._add_batch_button("Add Folder...", self._add_batch_folder, 1, 1)
         self._add_batch_button("Remove Selected", self._remove_selected_batch_video, 1, 2)
         self._add_batch_button("Clear List", self._clear_batch_list, 1, 3)
+        self.batch_excel_frame = ttk.LabelFrame(self.batch_frame, text="Excel output", padding=6)
+        self.batch_excel_frame.grid(row=2, column=0, columnspan=4, sticky="w")
+        ttk.Radiobutton(
+            self.batch_excel_frame,
+            text="One workbook per video",
+            value=False,
+            variable=self.batch_excel_consolidated,
+        ).grid(row=0, column=0, padx=(0, 12), sticky="w")
+        ttk.Radiobutton(
+            self.batch_excel_frame,
+            text="One workbook for the entire batch",
+            value=True,
+            variable=self.batch_excel_consolidated,
+        ).grid(row=0, column=1, sticky="w")
 
         ttk.Label(self, text="Output Folder").grid(
             row=5,
@@ -282,7 +305,9 @@ class VideoTextApp(ttk.Frame):
                 formats_frame,
                 text=name.title(),
                 variable=variable,
+                command=self._update_batch_excel_options if name == "excel" else None,
             ).grid(row=0, column=column, padx=(0, 16), sticky="w")
+        self._update_batch_excel_options()
 
         self.process_button = ttk.Button(
             self,
@@ -510,6 +535,7 @@ class VideoTextApp(ttk.Frame):
                 sticky="ew",
                 pady=(0, 8),
             )
+            self._update_batch_excel_options()
         else:
             self.batch_frame.grid_remove()
             self.advanced_checkbutton.grid()
@@ -557,6 +583,7 @@ class VideoTextApp(ttk.Frame):
         try:
             self._add_batch_paths(videos_in_folder(folder))
             self._remember_selected_folder("last_batch_folder", Path(folder))
+            self._remember_recent_source(str(Path(folder)))
         except ValueError as error:
             self._set_status(str(error))
 
@@ -584,6 +611,72 @@ class VideoTextApp(ttk.Frame):
     def _set_batch_controls_state(self, state: str) -> None:
         for control in getattr(self, "batch_controls", []):
             control.configure(state=state)
+
+    def _update_batch_excel_options(self) -> None:
+        """Allow consolidated Excel only when Excel is selected for a batch."""
+
+        enabled = self.format_options["excel"].get()
+        self.batch_excel_frame.configure(state="normal" if enabled else "disabled")
+        for child in self.batch_excel_frame.winfo_children():
+            child.configure(state="normal" if enabled else "disabled")
+        if not enabled:
+            self.batch_excel_consolidated.set(False)
+
+    def _remember_recent_source(self, source: str) -> None:
+        preferences = getattr(self, "preferences", None)
+        if preferences is None:
+            return
+        add_recent_source(preferences, source)
+        save_preferences(preferences)
+        self._refresh_recent_sources_menu()
+
+    def _refresh_recent_sources_menu(self) -> None:
+        menu = self.recent_sources_menu
+        menu.delete(0, "end")
+        if not self.preferences.recent_sources:
+            menu.add_command(label="No recent sources", state="disabled")
+            return
+        for source in self.preferences.recent_sources:
+            label = source if len(source) <= 60 else source[:57] + "..."
+            menu.add_command(
+                label=label,
+                command=lambda selected=source: self._select_recent_source(selected),
+            )
+
+    def _clear_recent_sources(self) -> None:
+        clear_recent_sources(self.preferences)
+        save_preferences(self.preferences)
+        self._refresh_recent_sources_menu()
+        self._append_log("Recent sources cleared.")
+
+    def _select_recent_source(self, source: str) -> None:
+        """Restore a remembered URL, file, or batch folder without temp paths."""
+
+        if "://" in source:
+            self.run_mode.set("single")
+            self._set_run_mode()
+            self.video_source_type.set("url")
+            self._set_video_source_type()
+            self.video_path.set(source)
+            return
+
+        path = Path(source)
+        if path.is_dir():
+            try:
+                self.run_mode.set("batch")
+                self._set_run_mode()
+                self._add_batch_paths(videos_in_folder(path))
+            except ValueError as error:
+                self._set_status(str(error))
+            return
+        if not path.is_file():
+            self._set_status(f"Recent local source is no longer available: {path}")
+            return
+        self.run_mode.set("single")
+        self._set_run_mode()
+        self.video_source_type.set("local")
+        self._set_video_source_type()
+        self.video_path.set(str(path))
 
     def _show_how_to_use(self) -> None:
         self._show_help_dialog(
@@ -839,6 +932,7 @@ class VideoTextApp(ttk.Frame):
                 source_paths=list(self.batch_paths),
                 output_directory=output_folder,
                 formats=selected_formats,
+                consolidated_excel=self.batch_excel_consolidated.get(),
                 progress_callback=self._queue_batch_progress,
             ),),
             daemon=True,
@@ -898,16 +992,18 @@ class VideoTextApp(ttk.Frame):
                     self._show_batch_progress(payload)
 
                 elif message_type == "complete":
+                    self._remember_recent_source(payload.source_path)
                     self._append_log(f"Output folder: {payload.run_directory}")
                     for format_name, path in payload.exported_paths.items():
                         self._append_log(
                             f"Saved {format_name.title()}: {path}"
                         )
                     self._finish_processing()
-                    self._open_completed_folder(payload.run_directory)
                     self._show_completion_dialog(payload)
 
                 elif message_type == "batch_complete":
+                    for item in payload.successful_items:
+                        self._remember_recent_source(item.source_path)
                     for item in payload.failed_items:
                         self._append_log(
                             f"FAILED: {Path(item.source_path).name}\n"
@@ -915,8 +1011,6 @@ class VideoTextApp(ttk.Frame):
                         )
                     self._finish_processing()
                     self._set_batch_controls_state("normal")
-                    if payload.successful_items:
-                        self._open_completed_folder(payload.log_path.parent)
                     self._show_batch_completion_dialog(payload)
 
                 elif message_type == "error":
@@ -1015,15 +1109,18 @@ class VideoTextApp(ttk.Frame):
         self.progress_bar.stop()
         self.process_button.configure(state="normal")
 
-    def _open_completed_folder(self, folder: Path) -> None:
-        """Optionally open one successful output folder without affecting success."""
-
-        if not getattr(self, "preferences", Preferences()).open_output_folder_after_completion:
-            return
+    def _open_output_folder(self, folder: Path) -> None:
+        """Open a user-requested successful output folder without affecting success."""
 
         warning = open_folder(folder)
         if warning:
             self._append_log(f"Warning: {warning}")
+
+    def _open_completed_folder(self, folder: Path) -> None:
+        """Retain the saved preference behavior for callers that opt into it."""
+
+        if getattr(self, "preferences", Preferences()).open_output_folder_after_completion:
+            self._open_output_folder(folder)
 
     def _set_status(self, message: str) -> None:
         self._reset_progress()
@@ -1098,12 +1195,17 @@ class VideoTextApp(ttk.Frame):
             dialog.grab_release()
             dialog.destroy()
 
+        ttk.Button(
+            button_frame,
+            text="Open Output Folder",
+            command=lambda: self._open_output_folder(result.run_directory),
+        ).grid(row=0, column=0, padx=(0, 8))
         close_button = ttk.Button(
             button_frame,
             text="Close",
             command=close_dialog,
         )
-        close_button.grid(row=0, column=0)
+        close_button.grid(row=0, column=1)
         dialog.protocol("WM_DELETE_WINDOW", close_dialog)
         dialog.bind("<Escape>", lambda _event: close_dialog())
         dialog.bind("<Return>", lambda _event: close_dialog())
@@ -1141,8 +1243,15 @@ class VideoTextApp(ttk.Frame):
         def close_dialog() -> None:
             dialog.destroy()
 
-        close_button = ttk.Button(dialog, text="Close", command=close_dialog)
-        close_button.grid(row=2, column=0, columnspan=2, sticky="e", padx=12, pady=(6, 12))
+        button_frame = ttk.Frame(dialog)
+        button_frame.grid(row=2, column=0, columnspan=2, sticky="e", padx=12, pady=(6, 12))
+        ttk.Button(
+            button_frame,
+            text="Open Output Folder",
+            command=lambda: self._open_output_folder(result.output_directory),
+        ).grid(row=0, column=0, padx=(0, 8))
+        close_button = ttk.Button(button_frame, text="Close", command=close_dialog)
+        close_button.grid(row=0, column=1)
         dialog.protocol("WM_DELETE_WINDOW", close_dialog)
         dialog.bind("<Escape>", lambda _event: close_dialog())
         close_button.focus_set()
@@ -1238,6 +1347,7 @@ def _insert_formatted_user_guide(text_widget: tk.Text, content: str) -> None:
             "Processing Stages",
             "Export Formats",
             "Batch Processing",
+            "Recent Sources",
             "Advanced Mode (Replay)",
             "Output Folder Structure",
             "Tips",
@@ -1418,6 +1528,10 @@ def _format_completion_dialog_text(summary: str) -> str:
         lines.append(f"Elapsed: {fields['Elapsed time']}")
 
     lines.extend(["", "Source", "--------------------"])
+    if "Video" in fields:
+        lines.append(f"Video: {fields['Video']}")
+    if "Source type" in fields:
+        lines.append(f"Source type: {fields['Source type']}")
     if "Source" in fields:
         lines.extend(("Source:", fields["Source"]))
     if "Resolved checkpoint" in fields:

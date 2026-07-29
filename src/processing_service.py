@@ -335,6 +335,11 @@ def format_processing_summary(result: ProcessingResult) -> str:
     lines = ["Processing Complete", "", f"Mode: {MODE_LABELS[result.mode]}"]
 
     if result.source_path:
+        source_name = Path(result.source_path.split("?", maxsplit=1)[0]).name
+        lines.append(f"Video: {source_name or result.source_path}")
+        if result.mode is ProcessingMode.FULL_VIDEO:
+            origin = "Downloaded HTTP/HTTPS video" if "://" in result.source_path else "Local file"
+            lines.append(f"Source type: {origin}")
         lines.append(f"Source: {result.source_path}")
     if result.resolved_checkpoint_path is not None:
         lines.append(f"Resolved checkpoint: {result.resolved_checkpoint_path}")

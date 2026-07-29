@@ -59,6 +59,28 @@ class ProcessingSummaryTests(unittest.TestCase):
         self.assertIn("Mode: Full video", summary)
         self.assertIn("Candidate frames processed: 49", summary)
 
+    def test_full_video_summary_identifies_local_or_downloaded_source_without_temp_path(self):
+        local_summary = format_processing_summary(
+            self.result(mode=ProcessingMode.FULL_VIDEO, checkpoint=None)
+        )
+        downloaded = self.result(mode=ProcessingMode.FULL_VIDEO, checkpoint=None)
+        downloaded = ProcessingResult(
+            presentation=downloaded.presentation,
+            run_directory=downloaded.run_directory,
+            exported_paths=downloaded.exported_paths,
+            mode=downloaded.mode,
+            source_path="https://example.test/lecture.mp4",
+            resolved_checkpoint_path=None,
+            frame_count=downloaded.frame_count,
+            elapsed_seconds=downloaded.elapsed_seconds,
+        )
+        downloaded_summary = format_processing_summary(downloaded)
+
+        self.assertIn("Source type: Local file", local_summary)
+        self.assertIn("Video: lecture.mp4", downloaded_summary)
+        self.assertIn("Source type: Downloaded HTTP/HTTPS video", downloaded_summary)
+        self.assertNotIn("videotext-download-", downloaded_summary)
+
     def test_each_resume_mode_uses_a_friendly_label(self):
         expected = {
             ProcessingMode.CANDIDATE_FRAMES: "Candidate frames cache",

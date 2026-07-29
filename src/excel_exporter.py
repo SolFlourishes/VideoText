@@ -9,6 +9,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from datetime import datetime
 from math import ceil
 from pathlib import Path
+import re
 
 from models import Presentation
 
@@ -130,6 +131,54 @@ def _write_metadata(worksheet, presentation: Presentation) -> None:
     worksheet.row_dimensions[METADATA_START_ROW + len(metadata) - 1].height = 36
 
 
+def sanitize_worksheet_name(name: str, used_names: set[str] | None = None) -> str:
+    """Return a deterministic, unique Excel worksheet name within 31 chars."""
+
+    used_names = used_names if used_names is not None else set()
+    base = re.sub(r"[:\\\\/?*\[\]]", "_", name).strip()
+    base = base or "Video"
+    base = base[:31]
+    candidate = base
+    suffix_number = 2
+    while candidate.casefold() in used_names:
+        suffix = f" ({suffix_number})"
+        candidate = f"{base[:31 - len(suffix)]}{suffix}"
+        suffix_number += 1
+    used_names.add(candidate.casefold())
+    return candidate
+
+
+def write_presentation_worksheet(worksheet, presentation: Presentation) -> None:
+    """Write one translation-ready presentation worksheet with existing styles."""
+
+    _write_metadata(worksheet, presentation)
+
+    for column, header in enumerate(TABLE_HEADERS, start=1):
+        cell = worksheet.cell(row=TABLE_HEADER_ROW, column=column, value=header)
+        cell.font = Font(bold=True)
+        cell.fill = HEADER_FILL
+        cell.alignment = Alignment(wrap_text=True, vertical="center")
+
+    worksheet.row_dimensions[TABLE_HEADER_ROW].height = HEADER_ROW_HEIGHT
+    worksheet.freeze_panes = f"A{TABLE_START_ROW}"
+
+    for slide in presentation.slides:
+        for paragraph in slide.paragraphs:
+            paragraph_text, _line_count = _format_paragraph_text(paragraph)
+            row_number = worksheet.max_row + 1
+            worksheet.cell(row=row_number, column=1, value=slide.slide_number)
+            original_text_cell = worksheet.cell(row=row_number, column=2, value=paragraph_text)
+            original_text_cell.alignment = Alignment(wrap_text=True, vertical="top")
+            translated_text_cell = worksheet.cell(row=row_number, column=3, value="")
+            translated_text_cell.alignment = Alignment(wrap_text=True, vertical="top")
+            worksheet.row_dimensions[row_number].height = _estimate_row_height(paragraph_text, "")
+
+    worksheet.column_dimensions["A"].width = 10
+    worksheet.column_dimensions["B"].width = TEXT_COLUMN_WIDTH
+    worksheet.column_dimensions["C"].width = TEXT_COLUMN_WIDTH
+    worksheet.auto_filter.ref = f"A{TABLE_HEADER_ROW}:C{worksheet.max_row}"
+
+
 def export_excel(
     presentation: Presentation,
     output_path: str,
@@ -141,47 +190,7 @@ def export_excel(
     workbook = Workbook()
     worksheet = workbook.active
 
-    _write_metadata(worksheet, presentation)
-
-    for column, header in enumerate(TABLE_HEADERS, start=1):
-        cell = worksheet.cell(row=TABLE_HEADER_ROW, column=column, value=header)
-        cell.font = Font(bold=True)
-        cell.fill = HEADER_FILL
-        cell.alignment = Alignment(wrap_text=True, vertical="center")
-
-    worksheet.row_dimensions[TABLE_HEADER_ROW].height = HEADER_ROW_HEIGHT
-
-    worksheet.freeze_panes = f"A{TABLE_START_ROW}"
-
-    for slide in presentation.slides:
-        for paragraph in slide.paragraphs:
-            paragraph_text, _line_count = _format_paragraph_text(paragraph)
-
-            row_number = worksheet.max_row + 1
-            worksheet.cell(row=row_number, column=1, value=slide.slide_number)
-            original_text_cell = worksheet.cell(
-                row=row_number,
-                column=2,
-                value=paragraph_text,
-            )
-            original_text_cell.alignment = Alignment(
-                wrap_text=True,
-                vertical="top",
-            )
-            translated_text_cell = worksheet.cell(row=row_number, column=3, value="")
-            translated_text_cell.alignment = Alignment(
-                wrap_text=True,
-                vertical="top",
-            )
-            worksheet.row_dimensions[row_number].height = _estimate_row_height(
-                paragraph_text,
-                "",
-            )
-
-    worksheet.column_dimensions["A"].width = 10
-    worksheet.column_dimensions["B"].width = TEXT_COLUMN_WIDTH
-    worksheet.column_dimensions["C"].width = TEXT_COLUMN_WIDTH
-    worksheet.auto_filter.ref = f"A{TABLE_HEADER_ROW}:C{worksheet.max_row}"
+    write_presentation_worksheet(worksheet, presentation)
 
     workbook.save(output_path)
 
