@@ -62,6 +62,7 @@ class VideoSource:
                 raise VideoSourceError(
                     "HTTP(S) video URLs must include a server name."
                 )
+            _reject_known_webpage_url(parsed)
             return cls(source_value, VideoSourceType.HTTP_URL)
 
         local_path = Path(source_value)
@@ -120,6 +121,7 @@ class DownloadManager:
         try:
             request = Request(source.value, headers={"User-Agent": "VideoText"})
             with urlopen(request) as response:
+                _reject_webpage_content_type(response.headers.get("Content-Type"))
                 total = _content_length(response.headers.get("Content-Length"))
                 filename = _download_filename(source.value, response)
                 output_path = temporary_directory / filename
@@ -148,6 +150,8 @@ class DownloadManager:
                     "Video download ended before the expected size was received."
                 )
 
+            _validate_downloaded_video(output_path)
+
             return ResolvedVideoSource(source, output_path, temporary_directory)
         except VideoSourceError:
             shutil.rmtree(temporary_directory, ignore_errors=True)
@@ -171,6 +175,56 @@ def resolve_video_source(
 
     manager = download_manager or DownloadManager()
     return manager.download(source, progress_callback, cancel_check)
+
+
+def _reject_known_webpage_url(parsed_url) -> None:
+    """Reject common video-platform webpage links before any download begins."""
+
+    host = parsed_url.netloc.lower().split(":", maxsplit=1)[0]
+    path = parsed_url.path.rstrip("/").lower()
+    if host == "youtu.be" or host.endswith(".youtu.be"):
+        raise VideoSourceError(
+            "This is a YouTube webpage URL, not a direct video-file URL. "
+            "YouTube links are not currently supported."
+        )
+    if (host == "youtube.com" or host.endswith(".youtube.com")) and path == "/watch":
+        raise VideoSourceError(
+            "This is a YouTube webpage URL, not a direct video-file URL. "
+            "YouTube links are not currently supported."
+        )
+
+
+def _reject_webpage_content_type(content_type: str | None) -> None:
+    """Reject unmistakable webpage responses without trusting generic types."""
+
+    media_type = (content_type or "").split(";", maxsplit=1)[0].strip().lower()
+    if media_type in {"text/html", "application/xhtml+xml"}:
+        raise VideoSourceError(
+            "The URL points to a webpage rather than a directly downloadable "
+            "video file. VideoText currently supports direct HTTP or HTTPS "
+            "links to video files."
+        )
+
+
+def _validate_downloaded_video(video_path: Path) -> None:
+    """Confirm downloaded bytes can be opened as a video before processing."""
+
+    try:
+        video, _fps = _open_video_for_validation(video_path)
+    except Exception as error:
+        raise VideoSourceError(
+            "Downloaded content is not a readable video file. VideoText "
+            "currently supports direct HTTP or HTTPS links to video files."
+        ) from error
+
+    video.release()
+
+
+def _open_video_for_validation(video_path: Path):
+    """Use the existing video-opening mechanism without importing it early."""
+
+    from video_reader import open_video
+    return open_video(str(video_path))
 
 
 def _content_length(value: str | None) -> int | None:

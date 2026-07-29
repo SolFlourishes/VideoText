@@ -144,6 +144,10 @@ class VideoTextApp(ttk.Frame):
             variable=self.video_source_type,
             command=self._set_video_source_type,
         ).grid(row=0, column=2, sticky="w")
+        ttk.Label(
+            self.source_choice_frame,
+            text="Enter a direct HTTP or HTTPS link to a video file.",
+        ).grid(row=1, column=1, columnspan=2, sticky="w", pady=(2, 0))
 
         self.video_label = ttk.Label(self, text="Video File")
         self.video_label.grid(
@@ -1230,6 +1234,7 @@ def _insert_formatted_user_guide(text_widget: tk.Text, content: str) -> None:
         {
             "What is VideoText?",
             "Getting Started",
+            "Video URLs",
             "Processing Stages",
             "Export Formats",
             "Batch Processing",

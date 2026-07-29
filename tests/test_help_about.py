@@ -160,6 +160,14 @@ class HelpAboutTests(unittest.TestCase):
         self.assertIn("trusted computer", content)
         self.assertIn("pickle", content)
 
+    def test_user_guide_explains_direct_video_url_limits(self):
+        content = get_how_to_use_text().lower()
+
+        self.assertIn("direct http or https links", content)
+        self.assertIn("youtube watch pages", content)
+        self.assertIn("protected cloud-sharing pages", content)
+        self.assertIn("authorized to access", content)
+
     def test_about_uses_shared_metadata_and_semantic_formatting_tags(self):
         source = Path(gui.__file__).read_text(encoding="utf-8")
 

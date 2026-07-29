@@ -18,6 +18,10 @@ Getting Started
 4. Click Start.
 5. Review the exported files.
 
+Video URLs
+
+URL mode accepts direct HTTP or HTTPS links to downloadable video files. Webpage links are not video-file links: YouTube watch pages and protected cloud-sharing pages are not currently supported. Only process content you are authorized to access.
+
 Processing Stages
 
 Candidate Frames — finds stable video frames that are useful for text extraction.
