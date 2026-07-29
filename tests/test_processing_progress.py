@@ -107,6 +107,33 @@ class ProcessingProgressTests(unittest.TestCase):
 
         self.assertEqual(events[-1].estimated_remaining_seconds, 0)
 
+    def test_frame_eta_waits_for_frame_and_time_thresholds(self):
+        clock = FakeClock()
+        events = []
+        reporter = ProgressReporter(events.append, clock=clock)
+        reporter.stage("frame_selection", "Selecting stable frames")
+
+        clock.value = 4
+        reporter.frame_selection(500, 1000)
+        self.assertIsNone(events[-1].estimated_remaining_seconds)
+
+        clock.value = 5
+        reporter.frame_selection(500, 1000)
+        self.assertEqual(events[-1].percentage, 50)
+        self.assertEqual(events[-1].estimated_remaining_seconds, 5)
+
+    def test_frame_progress_with_unknown_total_has_no_percentage_or_eta(self):
+        clock = FakeClock()
+        events = []
+        reporter = ProgressReporter(events.append, clock=clock)
+        reporter.stage("frame_selection", "Selecting stable frames")
+        clock.value = 10
+        reporter.frame_selection(1000, None)
+
+        self.assertIsNone(events[-1].total)
+        self.assertIsNone(events[-1].percentage)
+        self.assertIsNone(events[-1].estimated_remaining_seconds)
+
     def test_ocr_progress_covers_every_candidate_frame(self):
         frames = [object(), object(), object(), object()]
         checkpoint = self.checkpoint("candidate_frames.pkl", frames)
@@ -256,6 +283,40 @@ class ProcessingProgressTests(unittest.TestCase):
             ],
         )
 
+    def test_full_mode_emits_shared_frame_selection_progress(self):
+        video_path = self.root / "video.mp4"
+        video_path.touch()
+        events = []
+        video = MagicMock()
+        request = ProcessingRequest(
+            mode=ProcessingMode.FULL_VIDEO,
+            source_path=str(video_path),
+            output_directory=self.root / "output",
+            formats=["markdown"],
+            progress_callback=events.append,
+        )
+
+        def analyzer(_video, _fps, progress_callback, total_frames):
+            progress_callback(500, total_frames)
+            progress_callback(1000, total_frames)
+            return []
+
+        with (
+            patch.object(processing_service, "open_video", return_value=(video, 30)),
+            patch.object(processing_service, "get_video_frame_count", return_value=1000),
+            patch.object(processing_service, "analyze_video", side_effect=analyzer),
+            patch.object(processing_service, "save_candidate_frames"),
+            patch.object(processing_service, "perform_ocr", side_effect=lambda frames, **_: frames),
+            patch.object(processing_service, "reconstruct_reading_order", side_effect=lambda frames, **_: frames),
+            patch.object(processing_service, "_create_presentation", return_value=Presentation()),
+            patch.object(processing_service, "export_all", return_value={}),
+        ):
+            process_request(request)
+
+        frame_events = [event for event in events if event.stage == "frame_selection" and event.current]
+        self.assertEqual([500, 1000], [event.current for event in frame_events])
+        self.assertEqual([50, 100], [event.percentage for event in frame_events])
+
     def test_gui_progress_switches_between_progressbar_modes(self):
         app = object.__new__(gui.VideoTextApp)
         app.progress_bar = FakeProgressBar()
@@ -274,6 +335,40 @@ class ProcessingProgressTests(unittest.TestCase):
             "consolidation", "Consolidating slides", None, None, 1, None,
         ))
         self.assertEqual(app.progress_bar.configurations[-1]["mode"], "indeterminate")
+
+    def test_gui_frame_progress_and_reset_do_not_leave_stale_eta(self):
+        app = object.__new__(gui.VideoTextApp)
+        app.progress_bar = FakeProgressBar()
+        app.progress_value = FakeValue()
+        app.status = FakeValue()
+        app.progress_details = FakeValue()
+        app._append_log = lambda _message: None
+
+        gui.VideoTextApp._show_progress(app, ProcessingProgress(
+            "frame_selection", "Selecting stable frames", 500, 1000, 5, 5, 50,
+        ))
+        self.assertEqual(app.progress_bar.configurations[-1]["mode"], "determinate")
+        self.assertIn("500 / 1,000 frames (50%)", app.status.value)
+
+        gui.VideoTextApp._reset_progress(app)
+        self.assertEqual(app.progress_value.value, 0)
+        self.assertEqual(app.progress_details.value, "")
+
+    def test_gui_unknown_frame_total_remains_indeterminate_with_count(self):
+        app = object.__new__(gui.VideoTextApp)
+        app.progress_bar = FakeProgressBar()
+        app.progress_value = FakeValue()
+        app.status = FakeValue()
+        app.progress_details = FakeValue()
+        app._append_log = lambda _message: None
+
+        gui.VideoTextApp._show_progress(app, ProcessingProgress(
+            "frame_selection", "Selecting stable frames", 750, None, 6, None,
+        ))
+
+        self.assertEqual(app.progress_bar.configurations[-1]["mode"], "indeterminate")
+        self.assertIn("750 frames processed", app.status.value)
+        self.assertNotIn("Estimated remaining", app.progress_details.value)
 
     def test_duration_formatting_is_compact(self):
         self.assertEqual(format_duration(8), "8 seconds")

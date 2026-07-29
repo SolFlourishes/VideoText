@@ -32,6 +32,11 @@ def frame(value):
     return np.full((4, 4, 3), value, dtype=np.uint8)
 
 
+class FixedClock:
+    def __call__(self):
+        return 0.0
+
+
 class TerminalStableSlideTests(unittest.TestCase):
     fps = 5
 
@@ -74,6 +79,36 @@ class TerminalStableSlideTests(unittest.TestCase):
         candidates = self.analyze([100] * 25 + [104] * 25 + [109] * 4 + [114] * 18)
 
         self.assertEqual([100, 104, 109, 114], [item.image[0, 0, 0] for item in candidates])
+
+    def test_progress_is_throttled_and_final_event_is_emitted(self):
+        events = []
+        values = [100] * 505
+
+        analyze_video(
+            SyntheticVideo([frame(value) for value in values]),
+            self.fps,
+            progress_callback=lambda current, total: events.append((current, total)),
+            total_frames=len(values),
+            clock=FixedClock(),
+        )
+
+        self.assertEqual(events[0], (1, 505))
+        self.assertEqual(events[-1], (505, 505))
+        self.assertLess(len(events), 5)
+
+    def test_progress_supports_unknown_totals(self):
+        events = []
+        analyze_video(
+            SyntheticVideo([frame(100)] * 6),
+            self.fps,
+            progress_callback=lambda current, total: events.append((current, total)),
+            total_frames=None,
+            clock=FixedClock(),
+        )
+
+        self.assertTrue(events)
+        self.assertTrue(all(total is None for _, total in events))
+        self.assertEqual(events[-1][0], 6)
 
 
 if __name__ == "__main__":

@@ -23,9 +23,19 @@ def open_video(video_path: str):
     return implementation(video_path)
 
 
-def analyze_video(video, fps):
+def analyze_video(video, fps, progress_callback=None, total_frames=None):
     from frame_analyzer import analyze_video as implementation
-    return implementation(video, fps)
+    return implementation(
+        video,
+        fps,
+        progress_callback=progress_callback,
+        total_frames=total_frames,
+    )
+
+
+def get_video_frame_count(video):
+    from video_reader import get_frame_count as implementation
+    return implementation(video)
 
 
 def save_candidate_frames(candidate_frames, output_folder):
@@ -63,6 +73,9 @@ CHECKPOINT_NAMES = {
     ProcessingMode.READING_ORDER: "reading_order.pkl",
 }
 
+PROGRESS_MINIMUM_FRAME_COUNT = 500
+PROGRESS_MINIMUM_ELAPSED_SECONDS = 5.0
+
 
 @dataclass(frozen=True)
 class ProcessingProgress:
@@ -74,6 +87,7 @@ class ProcessingProgress:
     total: int | None
     elapsed_seconds: float
     estimated_remaining_seconds: float | None
+    percentage: float | None = None
 
 
 def format_duration(seconds: float) -> str:
@@ -111,6 +125,22 @@ class ProgressReporter:
     def item(self, stage: str, message: str, current: int, total: int) -> None:
         self._emit(stage, message, current, total)
 
+    def frame_selection(self, current: int, total: int | None) -> None:
+        """Emit frame-analysis progress with the conservative frame ETA rule."""
+        percentage = None
+        if total is not None and total > 0:
+            percentage = min(100.0, (current / total) * 100)
+
+        self._emit(
+            "frame_selection",
+            "Selecting stable frames",
+            current,
+            total,
+            percentage=percentage,
+            eta_minimum_current=PROGRESS_MINIMUM_FRAME_COUNT,
+            eta_minimum_elapsed=PROGRESS_MINIMUM_ELAPSED_SECONDS,
+        )
+
     def complete(self) -> None:
         elapsed = max(0.0, self.clock() - self.pipeline_started)
         self.total_elapsed_seconds = elapsed
@@ -123,6 +153,9 @@ class ProgressReporter:
         current: int | None,
         total: int | None,
         elapsed: float | None = None,
+        percentage: float | None = None,
+        eta_minimum_current: int = 3,
+        eta_minimum_elapsed: float = 0.0,
     ) -> None:
         if self.callback is None:
             return
@@ -134,7 +167,13 @@ class ProgressReporter:
         )
         estimated_remaining_seconds = None
 
-        if current is not None and total is not None and current >= 3 and total > 0:
+        if (
+            current is not None
+            and total is not None
+            and current >= eta_minimum_current
+            and elapsed_seconds >= eta_minimum_elapsed
+            and total > 0
+        ):
             remaining = max(0, total - current)
             estimated_remaining_seconds = max(
                 0.0,
@@ -148,6 +187,7 @@ class ProgressReporter:
             total=total,
             elapsed_seconds=elapsed_seconds,
             estimated_remaining_seconds=estimated_remaining_seconds,
+            percentage=percentage,
         ))
 
 
@@ -367,7 +407,12 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
             cache_directory = run_directory / "cache"
 
             reporter.stage("frame_selection", "Selecting stable frames")
-            candidate_frames = analyze_video(video, fps)
+            candidate_frames = analyze_video(
+                video,
+                fps,
+                progress_callback=reporter.frame_selection,
+                total_frames=get_video_frame_count(video),
+            )
             save_candidate_frames(candidate_frames, run_directory / "candidate_frames")
             save_cache(candidate_frames, cache_directory / "candidate_frames.pkl")
 

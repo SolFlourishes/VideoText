@@ -141,8 +141,16 @@ def _print_progress(progress: ProcessingProgress) -> None:
 
     message = progress.message
     if progress.current is not None and progress.total is not None:
-        item_label = "frame " if progress.stage in {"ocr", "reading_order"} else ""
-        message += f" — {item_label}{progress.current} of {progress.total}"
+        if progress.stage == "frame_selection":
+            percentage = (
+                f" ({progress.percentage:.0f}%)"
+                if progress.percentage is not None
+                else ""
+            )
+            message += f" — {progress.current:,} / {progress.total:,} frames{percentage}"
+        else:
+            item_label = "frame " if progress.stage in {"ocr", "reading_order"} else ""
+            message += f" — {item_label}{progress.current} of {progress.total}"
 
     message += f" | elapsed {format_duration(progress.elapsed_seconds)}"
     if progress.estimated_remaining_seconds is not None:

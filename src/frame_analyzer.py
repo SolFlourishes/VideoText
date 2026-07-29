@@ -4,6 +4,8 @@ frame_analyzer.py
 Analyzes a video and identifies candidate frames for OCR.
 """
 
+from time import monotonic
+
 import numpy as np
 
 from image_utils import calculate_frame_difference
@@ -19,6 +21,8 @@ from config import (
 # considering a slide stable.
 #
 STABLE_FRAMES_REQUIRED = 5
+PROGRESS_FRAME_INTERVAL = 500
+PROGRESS_TIME_INTERVAL_SECONDS = 1.0
 
 
 def _is_visible_slide(frame):
@@ -86,13 +90,22 @@ def _terminal_frame_is_stable(stability_window):
     )
 
 
-def analyze_video(video, fps):
+def analyze_video(
+    video,
+    fps,
+    progress_callback=None,
+    total_frames=None,
+    clock=monotonic,
+):
     """
     Analyze every frame in a video.
 
     Args:
         video: OpenCV VideoCapture object.
         fps: Frames per second.
+        progress_callback: Optional callback receiving processed and total frames.
+        total_frames: Optional reliable total supplied by the video reader.
+        clock: Monotonic clock used only to throttle progress updates.
 
     Returns:
         List[CandidateFrame]
@@ -116,6 +129,11 @@ def analyze_video(video, fps):
 
     frame_number = 1
     last_saved_frame = 0
+    last_progress_frame = 1
+    last_progress_time = clock()
+
+    if progress_callback is not None:
+        progress_callback(1, total_frames)
 
     # Tracks an active transition.
     transition_active = False
@@ -197,8 +215,15 @@ def analyze_video(video, fps):
         previous_frame = current_frame
         frame_number += 1
 
-        if frame_number % 500 == 0:
-            print(f"Processed {frame_number} frames...")
+        if progress_callback is not None:
+            now = clock()
+            if (
+                frame_number - last_progress_frame >= PROGRESS_FRAME_INTERVAL
+                or now - last_progress_time >= PROGRESS_TIME_INTERVAL_SECONDS
+            ):
+                progress_callback(frame_number, total_frames)
+                last_progress_frame = frame_number
+                last_progress_time = now
 
     # A final slide can be stable for fewer seconds than the normal static
     # timeout. Capture it only when the existing quiet-frame requirement is
@@ -225,5 +250,8 @@ def analyze_video(video, fps):
         pending_score,
         stable_count,
     )
+
+    if progress_callback is not None:
+        progress_callback(frame_number, total_frames)
 
     return candidate_frames

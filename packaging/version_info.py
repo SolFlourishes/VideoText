@@ -13,9 +13,13 @@ from app_info import APP_COPYRIGHT, APP_NAME, APP_RELEASE, APP_STATUS
 
 
 def windows_version_tuple(release: str = APP_RELEASE) -> tuple[int, int, int, int]:
-    """Convert a dotted release string into PyInstaller's four-part version."""
+    """Convert a release, including a development suffix, into a Windows version."""
 
-    parts = release.split(".")
+    numeric_release, separator, suffix = release.partition("-")
+    if separator and not suffix:
+        raise ValueError(f"Invalid release version: {release}")
+
+    parts = numeric_release.split(".")
     if not 1 <= len(parts) <= 4 or any(not part.isdigit() for part in parts):
         raise ValueError(f"Invalid release version: {release}")
 

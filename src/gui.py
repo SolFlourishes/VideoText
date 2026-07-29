@@ -890,11 +890,23 @@ class VideoTextApp(ttk.Frame):
 
         message = progress.message
         if progress.current is not None and progress.total is not None:
-            item_label = "frame " if progress.stage in {"ocr", "reading_order"} else ""
-            message += f" — {item_label}{progress.current} of {progress.total}"
+            if progress.stage == "frame_selection":
+                percentage = (
+                    f" ({progress.percentage:.0f}%)"
+                    if progress.percentage is not None
+                    else ""
+                )
+                message += f"\n{progress.current:,} / {progress.total:,} frames{percentage}"
+            else:
+                item_label = "frame " if progress.stage in {"ocr", "reading_order"} else ""
+                message += f" — {item_label}{progress.current} of {progress.total}"
             self.progress_bar.stop()
             self.progress_bar.configure(mode="determinate", maximum=progress.total)
             self.progress_value.set(progress.current)
+        elif progress.stage == "frame_selection" and progress.current is not None:
+            message += f"\n{progress.current:,} frames processed"
+            self.progress_bar.configure(mode="indeterminate")
+            self.progress_bar.start(10)
         elif progress.stage == "complete":
             self.progress_bar.stop()
             self.progress_bar.configure(mode="determinate", maximum=100)
