@@ -54,12 +54,14 @@ RUNTIME_MODULES = [
     "video_source",
 ]
 
-# PaddleOCR 3.x, PaddleX, and Paddle load submodules and native libraries
-# dynamically. These collections remain limited to VideoText's OCR runtime
-# dependencies.
+# PaddleOCR and Paddle load submodules and native libraries dynamically.
+# PaddleX's public OCR import path, in contrast, imports and registers its
+# pipeline and predictor implementations through normal package imports.
+# PyInstaller therefore discovers those modules during Analysis; recursively
+# collecting every PaddleX submodule would also analyze unrelated document,
+# video, speech, and generative-AI implementations.
 hiddenimports = list(RUNTIME_MODULES)
 hiddenimports += collect_submodules("paddleocr")
-hiddenimports += collect_submodules("paddlex")
 hiddenimports += collect_submodules("paddle")
 
 datas = collect_data_files("paddleocr", include_py_files=False)
