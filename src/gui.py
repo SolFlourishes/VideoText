@@ -16,6 +16,7 @@ from help_content import (
     get_about_introduction,
     get_about_sections,
     get_about_text,
+    get_accuracy_validation_text,
     get_how_to_use_text,
 )
 from batch_processing import (
@@ -97,6 +98,10 @@ class VideoTextApp(ttk.Frame):
         help_menu.add_command(
             label="How to Use VideoText",
             command=self._show_how_to_use,
+        )
+        help_menu.add_command(
+            label="Accuracy & Validation",
+            command=self._show_accuracy_validation,
         )
         help_menu.add_command(
             label="About VideoText",
@@ -551,12 +556,20 @@ class VideoTextApp(ttk.Frame):
             formatted_about=True,
         )
 
+    def _show_accuracy_validation(self) -> None:
+        self._show_help_dialog(
+            "Accuracy & Validation",
+            get_accuracy_validation_text(),
+            formatted_accuracy=True,
+        )
+
     def _show_help_dialog(
         self,
         title: str,
         content: str,
         formatted_guide: bool = False,
         formatted_about: bool = False,
+        formatted_accuracy: bool = False,
     ) -> None:
         """Display selectable, scrollable in-app help in a custom window."""
 
@@ -577,6 +590,8 @@ class VideoTextApp(ttk.Frame):
         help_text.grid(row=0, column=0, sticky="nsew", padx=12, pady=(12, 6))
         if formatted_guide:
             _insert_formatted_user_guide(help_text, content)
+        elif formatted_accuracy:
+            _insert_formatted_accuracy_validation(help_text, content)
         elif formatted_about:
             _insert_formatted_about(help_text, get_about_sections())
         else:
@@ -1081,8 +1096,14 @@ class VideoTextApp(ttk.Frame):
         self.log_text.configure(state="disabled")
 
 
-def _insert_formatted_user_guide(text_widget: tk.Text, content: str) -> None:
-    """Insert the built-in guide with reusable, accessible Text tags."""
+def _insert_formatted_help_topic(
+    text_widget: tk.Text,
+    content: str,
+    title: str,
+    headings: set[str],
+    subheadings: set[str] = set(),
+) -> None:
+    """Insert a selectable help topic with the shared accessible Text tags."""
 
     text_widget.tag_configure(
         "title",
@@ -1120,30 +1141,10 @@ def _insert_formatted_user_guide(text_widget: tk.Text, content: str) -> None:
         spacing3=4,
     )
 
-    headings = {
-        "What is VideoText?",
-        "Getting Started",
-        "Processing Stages",
-        "Export Formats",
-        "Batch Processing",
-        "Advanced Mode (Replay)",
-        "Output Folder Structure",
-        "Tips",
-        "Troubleshooting",
-    }
-    subheadings = {
-        "Markdown",
-        "CSV",
-        "Excel Translation Workbook",
-        "Slow OCR",
-        "Missing text",
-        "Replay availability",
-        "Output location",
-    }
     code_block = False
 
     for line in content.splitlines():
-        if line == "VideoText User Guide":
+        if line == title:
             tag = "title"
         elif line in headings:
             tag = "heading"
@@ -1164,6 +1165,57 @@ def _insert_formatted_user_guide(text_widget: tk.Text, content: str) -> None:
         else:
             tag = "body"
         text_widget.insert("end", line + "\n", tag)
+
+
+def _insert_formatted_user_guide(text_widget: tk.Text, content: str) -> None:
+    """Insert the built-in user guide with reusable, accessible Text tags."""
+    _insert_formatted_help_topic(
+        text_widget,
+        content,
+        "VideoText User Guide",
+        {
+            "What is VideoText?",
+            "Getting Started",
+            "Processing Stages",
+            "Export Formats",
+            "Batch Processing",
+            "Advanced Mode (Replay)",
+            "Output Folder Structure",
+            "Tips",
+            "Troubleshooting",
+        },
+        {
+            "Markdown",
+            "CSV",
+            "Excel Translation Workbook",
+            "Slow OCR",
+            "Missing text",
+            "Replay availability",
+            "Output location",
+        },
+    )
+
+
+def _insert_formatted_accuracy_validation(
+    text_widget: tk.Text,
+    content: str,
+) -> None:
+    """Insert the Accuracy & Validation topic with the shared Help style."""
+    _insert_formatted_help_topic(
+        text_widget,
+        content,
+        "Accuracy & Validation",
+        {
+            "What VideoText Is Designed For",
+            "How VideoText Works",
+            "Expected Accuracy",
+            "Factors That Affect Accuracy",
+            "Validation",
+            "Engineering Philosophy",
+            "Future Validation",
+            "Practical Recommendation",
+        },
+    )
 
 
 def _insert_formatted_about(

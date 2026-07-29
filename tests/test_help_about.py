@@ -9,7 +9,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import gui
 from app_info import APP_COPYRIGHT, APP_NAME, APP_RELEASE, APP_STATUS
-from help_content import get_about_sections, get_about_text, get_how_to_use_text
+from help_content import (
+    get_about_sections,
+    get_about_text,
+    get_accuracy_validation_text,
+    get_how_to_use_text,
+)
 
 
 class HelpAboutTests(unittest.TestCase):
@@ -59,6 +64,27 @@ class HelpAboutTests(unittest.TestCase):
         self.assertIn("registry", content)
         self.assertIn("background services", content)
 
+    def test_accuracy_validation_topic_covers_expected_sections(self):
+        content = get_accuracy_validation_text()
+
+        for section in (
+            "Accuracy & Validation",
+            "What VideoText Is Designed For",
+            "How VideoText Works",
+            "Expected Accuracy",
+            "Factors That Affect Accuracy",
+            "Validation",
+            "Engineering Philosophy",
+            "Future Validation",
+            "Practical Recommendation",
+        ):
+            with self.subTest(section=section):
+                self.assertIn(section, content)
+
+        self.assertIn("automated regression testing", content)
+        self.assertIn("AI-assisted comparison", content)
+        self.assertIn("original video", content)
+
     def test_shared_application_metadata_is_available_for_about_and_packaging(self):
         self.assertEqual(APP_NAME, "VideoText")
         self.assertEqual(APP_RELEASE, "1.1.0-dev")
@@ -70,7 +96,32 @@ class HelpAboutTests(unittest.TestCase):
 
         self.assertIn('menu_bar.add_cascade(label="Help"', source)
         self.assertIn('label="How to Use VideoText"', source)
+        self.assertIn('label="Accuracy & Validation"', source)
         self.assertIn('label="About VideoText"', source)
+        self.assertLess(
+            source.index('label="Accuracy & Validation"'),
+            source.index('label="About VideoText"'),
+        )
+
+    def test_accuracy_topic_uses_the_existing_formatted_help_dialog(self):
+        source = Path(gui.__file__).read_text(encoding="utf-8")
+
+        self.assertIn("def _show_accuracy_validation", source)
+        self.assertIn("get_accuracy_validation_text()", source)
+        self.assertIn("formatted_accuracy=True", source)
+        self.assertIn("_insert_formatted_accuracy_validation(help_text, content)", source)
+
+    def test_accuracy_topic_uses_shared_title_and_heading_tags(self):
+        text = self._FakeText()
+
+        gui._insert_formatted_accuracy_validation(
+            text,
+            get_accuracy_validation_text(),
+        )
+
+        self.assertIn(("Accuracy & Validation\n", "title"), text.insertions)
+        self.assertIn(("Validation\n", "heading"), text.insertions)
+        self.assertTrue({"title", "heading", "body"}.issubset(text.tags))
 
     def test_help_dialog_is_custom_scrollable_read_only_and_escape_closable(self):
         source = Path(gui.__file__).read_text(encoding="utf-8")

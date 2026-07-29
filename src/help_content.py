@@ -89,6 +89,45 @@ Each run is saved in its own folder beneath the output location you selected.
 """
 
 
+def get_accuracy_validation_text() -> str:
+    """Return the user-facing explanation of VideoText accuracy and validation."""
+
+    return """Accuracy & Validation
+
+What VideoText Is Designed For
+
+VideoText is optimized for extracting visible text from lecture recordings, classroom presentations, webinars, conference presentations, screen-recorded slide decks, and other presentation-style instructional videos. It reconstructs readable documents from the visible content of those slides.
+
+How VideoText Works
+
+VideoText selects stable video frames, reads visible text with OCR, determines reading order, reconstructs paragraphs, consolidates repeated views of slides, and exports the result into the formats you choose.
+
+Expected Accuracy
+
+VideoText supports high-quality extraction of visible text from presentation-style and instructional videos. Extraction accuracy is typically very high for this type of content, but no OCR system can guarantee perfect extraction under every condition.
+
+Factors That Affect Accuracy
+
+Examples include low video resolution, small fonts, motion blur, fast animations, decorative fonts, poor contrast, heavy compression, partially obscured text, complex diagrams, and handwritten content.
+
+Validation
+
+VideoText is continuously validated using automated regression testing, deterministic smoke tests, replay validation, export validation, and real-world presentation videos. AI-assisted comparison of extracted text against visible slide content is one component of this broader validation process; it does not guarantee correctness on its own.
+
+Engineering Philosophy
+
+Every release is checked against a growing suite of deterministic regression tests so that improvements do not unintentionally change previously verified behavior.
+
+Future Validation
+
+Ongoing benchmarking and validation will continue to expand support and characterize performance across additional video types.
+
+Practical Recommendation
+
+For presentation-style instructional content, VideoText provides an excellent starting point for documentation and note generation. When complete fidelity is required, review extracted text against the original video.
+"""
+
+
 def get_about_text() -> str:
     """Return the concise VideoText application description."""
 
