@@ -28,6 +28,7 @@ write_version_file(VERSION_FILE)
 RUNTIME_MODULES = [
     "app_info",
     "batch_processing",
+    "batch_excel_exporter",
     "cache_manager",
     "config",
     "csv_exporter",
@@ -50,6 +51,7 @@ RUNTIME_MODULES = [
     "structure_detection",
     "text_reconstruction",
     "video_reader",
+    "video_source",
 ]
 
 # PaddleOCR 3.x, PaddleX, and Paddle load submodules and native libraries
