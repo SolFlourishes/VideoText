@@ -224,6 +224,49 @@ class ProcessingServiceTests(unittest.TestCase):
         self.assertTrue((result.run_directory / "cache" / "ocr_results.pkl").is_file())
         self.assertTrue((result.run_directory / "cache" / "reading_order.pkl").is_file())
 
+    def test_full_processing_uses_the_resolved_local_video_path(self):
+        video = MagicMock()
+        downloaded_path = self.root / "temporary-download" / "lesson.mp4"
+        downloaded_path.parent.mkdir()
+        downloaded_path.write_bytes(b"video")
+        resolved_source = MagicMock(local_path=downloaded_path)
+        request = ProcessingRequest(
+            mode=ProcessingMode.FULL_VIDEO,
+            source_path="https://example.test/lesson.mp4",
+            output_directory=self.output_root,
+            formats=["markdown"],
+        )
+
+        with (
+            patch.object(processing_service, "resolve_video_source", return_value=resolved_source),
+            patch.object(processing_service, "open_video", return_value=(video, 30)) as open_video,
+            patch.object(processing_service, "get_video_frame_count", return_value=1),
+            patch.object(processing_service, "analyze_video", return_value=[]),
+            patch.object(processing_service, "save_candidate_frames"),
+            patch.object(processing_service, "perform_ocr", side_effect=lambda frames, **_: frames),
+            patch.object(processing_service, "reconstruct_reading_order", side_effect=lambda frames, **_: frames),
+            patch.object(processing_service, "export_all", return_value={}),
+        ):
+            process_request(request)
+
+        open_video.assert_called_once_with(str(downloaded_path))
+        resolved_source.cleanup.assert_called_once()
+
+    def test_replay_never_resolves_or_downloads_a_video_source(self):
+        checkpoint = self.checkpoint("reading_order.pkl")
+        ocr, reading_order, exporter, create_presentation = self.resume_patches()
+
+        with (
+            ocr,
+            reading_order,
+            exporter,
+            create_presentation,
+            patch.object(processing_service, "resolve_video_source") as resolve_source,
+        ):
+            process_request(self.request(ProcessingMode.READING_ORDER, checkpoint))
+
+        resolve_source.assert_not_called()
+
     def test_cli_and_gui_delegate_to_the_shared_service(self):
         self.assertIn("process_request(", inspect.getsource(main.process_video))
         self.assertIn("process_request(request)", inspect.getsource(gui.VideoTextApp._run_processing_worker))

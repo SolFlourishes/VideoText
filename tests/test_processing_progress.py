@@ -19,6 +19,7 @@ from processing_service import (
     ProcessingProgress,
     ProcessingRequest,
     ProgressReporter,
+    format_bytes,
     format_duration,
     process_request,
 )
@@ -142,6 +143,23 @@ class ProcessingProgressTests(unittest.TestCase):
         reporter.frame_selection(500, 1000)
         self.assertEqual(events[-1].percentage, 50)
         self.assertEqual(events[-1].estimated_remaining_seconds, 5)
+
+    def test_download_progress_is_step_zero_before_pipeline_phases(self):
+        clock = FakeClock()
+        events = []
+        reporter = ProgressReporter(
+            events.append,
+            phase_stages=PHASE_STAGES[ProcessingMode.FULL_VIDEO],
+            clock=clock,
+        )
+
+        clock.value = 4
+        reporter.download(2048, 4096)
+
+        event = events[-1]
+        self.assertEqual((event.stage, event.step_current, event.step_total), ("download", 0, 5))
+        self.assertEqual(event.percentage, 50)
+        self.assertEqual(format_bytes(event.current), "2.0 KB")
 
     def test_frame_progress_with_unknown_total_has_no_percentage_or_eta(self):
         clock = FakeClock()
@@ -367,6 +385,22 @@ class ProcessingProgressTests(unittest.TestCase):
             "consolidation", "Consolidating slides", None, None, 1, None,
         ))
         self.assertEqual(app.progress_bar.configurations[-1]["mode"], "indeterminate")
+
+    def test_gui_download_progress_uses_bytes_and_step_zero(self):
+        app = object.__new__(gui.VideoTextApp)
+        app.progress_bar = FakeProgressBar()
+        app.progress_value = FakeValue()
+        app.status = FakeValue()
+        app.progress_details = FakeValue()
+        app._append_log = lambda _message: None
+
+        gui.VideoTextApp._show_progress(app, ProcessingProgress(
+            "download", "Downloading video", 2048, 4096, 4, 4, 50, 0, 5,
+        ))
+
+        self.assertEqual(app.progress_bar.configurations[-1]["mode"], "determinate")
+        self.assertIn("Step 0 of 5", app.status.value)
+        self.assertIn("2.0 KB of 4.0 KB (50%)", app.status.value)
 
     def test_gui_frame_progress_and_reset_do_not_leave_stale_eta(self):
         app = object.__new__(gui.VideoTextApp)

@@ -14,6 +14,7 @@ from run_workspace import (
     create_run_directory,
     sanitize_video_stem,
 )
+from video_source import resolve_video_source
 
 
 # Keep optional video/OCR dependencies out of module import time.  This lets
@@ -137,6 +138,22 @@ def format_duration(seconds: float) -> str:
     return f"{seconds} seconds"
 
 
+def format_bytes(byte_count: int) -> str:
+    """Format a non-negative byte count compactly for shared progress views."""
+
+    value = max(0, byte_count)
+    units = ("bytes", "KB", "MB", "GB")
+    for index, unit in enumerate(units):
+        if value < 1024 or index == len(units) - 1:
+            return (
+                f"{int(value)} {unit}"
+                if unit == "bytes"
+                else f"{value:.1f} {unit}"
+            )
+        value /= 1024
+    return f"{value:.1f} TB"
+
+
 class ProgressReporter:
     """Own stage timing and ETA calculation for a single processing request."""
 
@@ -191,6 +208,23 @@ class ProgressReporter:
             eta_minimum_elapsed=PROGRESS_MINIMUM_ELAPSED_SECONDS,
         )
 
+    def download(self, current: int, total: int | None) -> None:
+        """Emit pre-pipeline download progress as step zero of this run."""
+
+        percentage = None
+        if total is not None and total > 0:
+            percentage = min(100.0, (current / total) * 100)
+        self._emit(
+            "download",
+            "Downloading video",
+            current,
+            total,
+            percentage=percentage,
+            eta_minimum_current=3,
+            step_current=0,
+            step_total=self.phase_total,
+        )
+
     def complete(self) -> None:
         elapsed = max(0.0, self.clock() - self.pipeline_started)
         self.total_elapsed_seconds = elapsed
@@ -206,6 +240,8 @@ class ProgressReporter:
         percentage: float | None = None,
         eta_minimum_current: int = 3,
         eta_minimum_elapsed: float = 0.0,
+        step_current: int | None = None,
+        step_total: int | None = None,
     ) -> None:
         if self.callback is None:
             return
@@ -238,8 +274,14 @@ class ProgressReporter:
             elapsed_seconds=elapsed_seconds,
             estimated_remaining_seconds=estimated_remaining_seconds,
             percentage=percentage,
-            step_current=self.phase_steps.get(stage),
-            step_total=self.phase_total if stage in self.phase_steps else None,
+            step_current=(
+                self.phase_steps.get(stage)
+                if step_current is None else step_current
+            ),
+            step_total=(
+                self.phase_total if stage in self.phase_steps else None
+                if step_total is None else step_total
+            ),
         ))
 
 
@@ -444,67 +486,68 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
     )
 
     if request.mode is ProcessingMode.FULL_VIDEO:
-        video_path = Path(request.source_path)
-        if not video_path.is_file():
-            raise ValueError(
-                "Full video mode expected an existing video file. "
-                f"Checked path: {video_path}."
-            )
-
-        reporter.stage("preparing_video", "Preparing video")
-        video, fps = open_video(request.source_path)
-
+        resolved_source = resolve_video_source(
+            request.source_path,
+            progress_callback=reporter.download,
+        )
         try:
-            output_stem, run_directory = create_run_directory(
-                output_root,
-                request.source_path,
-            )
-            cache_directory = run_directory / "cache"
+            resolved_video_path = resolved_source.local_path
+            reporter.stage("preparing_video", "Preparing video")
+            video, fps = open_video(str(resolved_video_path))
 
-            reporter.stage("frame_selection", "Selecting stable frames")
-            candidate_frames = analyze_video(
-                video,
-                fps,
-                progress_callback=reporter.frame_selection,
-                total_frames=get_video_frame_count(video),
-            )
-            save_candidate_frames(candidate_frames, run_directory / "candidate_frames")
-            save_cache(candidate_frames, cache_directory / "candidate_frames.pkl")
+            try:
+                output_stem, run_directory = create_run_directory(
+                    output_root,
+                    str(resolved_video_path),
+                )
+                cache_directory = run_directory / "cache"
 
-            reporter.stage("ocr", "Running OCR")
-            candidate_frames = perform_ocr(
-                candidate_frames,
-                progress_callback=lambda current, total: reporter.item(
-                    "ocr",
-                    "Running OCR",
-                    current,
-                    total,
-                ),
-            )
-            save_cache(candidate_frames, cache_directory / "ocr_results.pkl")
+                reporter.stage("frame_selection", "Selecting stable frames")
+                candidate_frames = analyze_video(
+                    video,
+                    fps,
+                    progress_callback=reporter.frame_selection,
+                    total_frames=get_video_frame_count(video),
+                )
+                save_candidate_frames(candidate_frames, run_directory / "candidate_frames")
+                save_cache(candidate_frames, cache_directory / "candidate_frames.pkl")
 
-            reporter.stage("reading_order", "Determining reading order")
-            candidate_frames = reconstruct_reading_order(
-                candidate_frames,
-                progress_callback=lambda current, total: reporter.item(
-                    "reading_order",
-                    "Reconstructing paragraphs",
-                    current,
-                    total,
-                ),
-            )
-            save_cache(candidate_frames, cache_directory / "reading_order.pkl")
+                reporter.stage("ocr", "Running OCR")
+                candidate_frames = perform_ocr(
+                    candidate_frames,
+                    progress_callback=lambda current, total: reporter.item(
+                        "ocr",
+                        "Running OCR",
+                        current,
+                        total,
+                    ),
+                )
+                save_cache(candidate_frames, cache_directory / "ocr_results.pkl")
 
-            return _finish_run(
-                candidate_frames,
-                request,
-                run_directory,
-                output_stem,
-                {"video_path": request.source_path},
-                reporter,
-            )
+                reporter.stage("reading_order", "Determining reading order")
+                candidate_frames = reconstruct_reading_order(
+                    candidate_frames,
+                    progress_callback=lambda current, total: reporter.item(
+                        "reading_order",
+                        "Reconstructing paragraphs",
+                        current,
+                        total,
+                    ),
+                )
+                save_cache(candidate_frames, cache_directory / "reading_order.pkl")
+
+                return _finish_run(
+                    candidate_frames,
+                    request,
+                    run_directory,
+                    output_stem,
+                    {"video_path": str(resolved_video_path)},
+                    reporter,
+                )
+            finally:
+                video.release()
         finally:
-            video.release()
+            resolved_source.cleanup()
 
     loading_message = {
         ProcessingMode.CANDIDATE_FRAMES: "Loading candidate-frames checkpoint",

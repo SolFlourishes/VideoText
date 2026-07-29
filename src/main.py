@@ -19,6 +19,7 @@ from processing_service import (
     ProcessingProgress,
     ProcessingRequest,
     ProcessingResult,
+    format_bytes,
     format_duration,
     format_processing_summary,
     process_request,
@@ -122,7 +123,7 @@ def _prompt_request(
 
     mode = mode or select_processing_mode()
     if mode is ProcessingMode.FULL_VIDEO:
-        source_prompt = "Video: "
+        source_prompt = "Video file or HTTP(S) URL: "
     else:
         source_prompt = "Checkpoint file or prior run folder: "
 
@@ -145,7 +146,20 @@ def _print_progress(progress: ProcessingProgress) -> None:
         else ""
     )
     message = step + progress.message
-    if progress.current is not None and progress.total is not None:
+    if progress.stage == "download" and progress.current is not None:
+        if progress.total is None:
+            message += f" - {format_bytes(progress.current)} downloaded"
+        else:
+            percentage = (
+                f" ({progress.percentage:.0f}%)"
+                if progress.percentage is not None
+                else ""
+            )
+            message += (
+                f" - {format_bytes(progress.current)} of "
+                f"{format_bytes(progress.total)}{percentage}"
+            )
+    elif progress.current is not None and progress.total is not None:
         if progress.stage == "frame_selection":
             percentage = (
                 f" ({progress.percentage:.0f}%)"

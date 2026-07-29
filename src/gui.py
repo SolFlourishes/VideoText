@@ -41,10 +41,12 @@ from processing_service import (
     ProcessingMode,
     ProcessingProgress,
     ProcessingRequest,
+    format_bytes,
     format_duration,
     format_processing_summary,
     process_request,
 )
+from video_source import VideoSource, VideoSourceError
 
 
 class VideoTextApp(ttk.Frame):
@@ -56,6 +58,7 @@ class VideoTextApp(ttk.Frame):
         self.preferences = load_preferences()
         self.preferences_dialog: tk.Toplevel | None = None
         self.video_path = tk.StringVar()
+        self.video_source_type = tk.StringVar(value="local")
         self.run_mode = tk.StringVar(value="single")
         self.advanced_mode = tk.BooleanVar(value=False)
         self.advanced_start_mode = tk.StringVar(
@@ -118,11 +121,33 @@ class VideoTextApp(ttk.Frame):
         self.master.columnconfigure(0, weight=1)
         self.master.rowconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
-        self.rowconfigure(8, weight=1)
+        self.rowconfigure(9, weight=1)
+
+        self.source_choice_frame = ttk.Frame(self)
+        self.source_choice_frame.grid(
+            row=0, column=0, columnspan=3, sticky="w", pady=(0, 4),
+        )
+        ttk.Label(self.source_choice_frame, text="Video Source").grid(
+            row=0, column=0, padx=(0, 12), sticky="w",
+        )
+        ttk.Radiobutton(
+            self.source_choice_frame,
+            text="Local File",
+            value="local",
+            variable=self.video_source_type,
+            command=self._set_video_source_type,
+        ).grid(row=0, column=1, padx=(0, 12), sticky="w")
+        ttk.Radiobutton(
+            self.source_choice_frame,
+            text="URL",
+            value="url",
+            variable=self.video_source_type,
+            command=self._set_video_source_type,
+        ).grid(row=0, column=2, sticky="w")
 
         self.video_label = ttk.Label(self, text="Video File")
         self.video_label.grid(
-            row=0,
+            row=1,
             column=0,
             sticky="w",
             padx=(0, 8),
@@ -130,7 +155,7 @@ class VideoTextApp(ttk.Frame):
         )
         self.video_entry = ttk.Entry(self, textvariable=self.video_path)
         self.video_entry.grid(
-            row=0,
+            row=1,
             column=1,
             sticky="ew",
             pady=(0, 8),
@@ -141,14 +166,14 @@ class VideoTextApp(ttk.Frame):
             command=self._browse_video,
         )
         self.video_browse_button.grid(
-            row=0,
+            row=1,
             column=2,
             padx=(8, 0),
             pady=(0, 8),
         )
 
         mode_frame = ttk.LabelFrame(self, text="Processing Mode", padding=6)
-        mode_frame.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        mode_frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         ttk.Radiobutton(
             mode_frame,
             text="Single video",
@@ -170,7 +195,7 @@ class VideoTextApp(ttk.Frame):
             variable=self.advanced_mode,
             command=self._toggle_advanced_mode,
         )
-        self.advanced_checkbutton.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        self.advanced_checkbutton.grid(row=3, column=0, columnspan=3, sticky="w", pady=(0, 8))
 
         self.advanced_frame = ttk.LabelFrame(
             self,
@@ -220,20 +245,20 @@ class VideoTextApp(ttk.Frame):
         self._add_batch_button("Clear List", self._clear_batch_list, 1, 3)
 
         ttk.Label(self, text="Output Folder").grid(
-            row=4,
+            row=5,
             column=0,
             sticky="w",
             padx=(0, 8),
             pady=(0, 8),
         )
         ttk.Entry(self, textvariable=self.output_folder).grid(
-            row=4,
+            row=5,
             column=1,
             sticky="ew",
             pady=(0, 8),
         )
         ttk.Button(self, text="Browse", command=self._browse_output_folder).grid(
-            row=4,
+            row=5,
             column=2,
             padx=(8, 0),
             pady=(0, 8),
@@ -241,7 +266,7 @@ class VideoTextApp(ttk.Frame):
 
         formats_frame = ttk.LabelFrame(self, text="Export Formats", padding=8)
         formats_frame.grid(
-            row=5,
+            row=6,
             column=0,
             columnspan=3,
             sticky="ew",
@@ -261,7 +286,7 @@ class VideoTextApp(ttk.Frame):
             command=self._start_processing,
         )
         self.process_button.grid(
-            row=6,
+            row=7,
             column=0,
             columnspan=3,
             pady=(0, 8),
@@ -269,7 +294,7 @@ class VideoTextApp(ttk.Frame):
 
         progress_frame = ttk.LabelFrame(self, text="Progress", padding=8)
         progress_frame.grid(
-            row=7,
+            row=8,
             column=0,
             columnspan=3,
             sticky="ew",
@@ -298,7 +323,7 @@ class VideoTextApp(ttk.Frame):
 
         log_frame = ttk.LabelFrame(self, text="Log", padding=8)
         log_frame.grid(
-            row=8,
+            row=9,
             column=0,
             columnspan=3,
             sticky="nsew",
@@ -330,6 +355,13 @@ class VideoTextApp(ttk.Frame):
         if path:
             self.video_path.set(path)
             self._remember_selected_folder("last_single_video_folder", Path(path).parent)
+
+    def _set_video_source_type(self) -> None:
+        """Keep one source entry while making its local/URL purpose explicit."""
+
+        is_url = self.video_source_type.get() == "url"
+        self.video_label.configure(text="Video URL" if is_url else "Video File")
+        self.video_browse_button.configure(state="disabled" if is_url else "normal")
 
     def _show_preferences(self) -> None:
         """Open one editable preferences dialog without duplicating windows."""
@@ -461,13 +493,14 @@ class VideoTextApp(ttk.Frame):
         """Show either the single-video controls or the sequential batch queue."""
 
         if self.run_mode.get() == "batch":
+            self.source_choice_frame.grid_remove()
             self.video_label.grid_remove()
             self.video_entry.grid_remove()
             self.video_browse_button.grid_remove()
             self.advanced_checkbutton.grid_remove()
             self.advanced_frame.grid_remove()
             self.batch_frame.grid(
-                row=3,
+                row=4,
                 column=0,
                 columnspan=3,
                 sticky="ew",
@@ -475,18 +508,24 @@ class VideoTextApp(ttk.Frame):
             )
         else:
             self.batch_frame.grid_remove()
-            self.video_label.grid()
-            self.video_entry.grid()
-            self.video_browse_button.grid()
             self.advanced_checkbutton.grid()
             if self.advanced_mode.get():
+                self.source_choice_frame.grid_remove()
+                self.video_label.grid_remove()
+                self.video_entry.grid_remove()
+                self.video_browse_button.grid_remove()
                 self.advanced_frame.grid(
-                    row=3,
+                    row=4,
                     column=0,
                     columnspan=3,
                     sticky="ew",
                     pady=(0, 8),
                 )
+            else:
+                self.source_choice_frame.grid()
+                self.video_label.grid()
+                self.video_entry.grid()
+                self.video_browse_button.grid()
 
     def _add_batch_videos(self) -> None:
         paths = filedialog.askopenfilenames(
@@ -626,12 +665,13 @@ class VideoTextApp(ttk.Frame):
         """Show resume controls only when a user explicitly enables them."""
 
         if self.advanced_mode.get():
+            self.source_choice_frame.grid_remove()
             self.video_label.grid_remove()
             self.video_entry.grid_remove()
             self.video_browse_button.grid_remove()
             self.advanced_source_path.set(self.video_path.get())
             self.advanced_frame.grid(
-                row=3,
+                row=4,
                 column=0,
                 columnspan=3,
                 sticky="ew",
@@ -639,6 +679,7 @@ class VideoTextApp(ttk.Frame):
             )
         else:
             self.advanced_frame.grid_remove()
+            self.source_choice_frame.grid()
             self.video_label.grid()
             self.video_entry.grid()
             self.video_browse_button.grid()
@@ -697,14 +738,14 @@ class VideoTextApp(ttk.Frame):
             if self.advanced_mode.get()
             else self.video_path.get()
         )
-        source = Path(source_path)
         output_folder = Path(self.output_folder.get())
 
-        if mode is ProcessingMode.FULL_VIDEO and (
-            not source_path or not source.is_file()
-        ):
-            self._set_status("Select a valid video file.")
-            return
+        if mode is ProcessingMode.FULL_VIDEO:
+            try:
+                VideoSource.from_value(source_path)
+            except VideoSourceError as error:
+                self._set_status(str(error))
+                return
 
         if mode is not ProcessingMode.FULL_VIDEO and (
             not source_path or not source.exists()
@@ -734,7 +775,7 @@ class VideoTextApp(ttk.Frame):
         self.process_button.configure(state="disabled")
         self._reset_progress()
         self._append_log(f"Processing mode: {mode.value}")
-        self._append_log(f"Source selected: {source}")
+        self._append_log(f"Source selected: {source_path}")
         self._append_log(f"Output folder selected: {output_folder}")
         self._append_log(
             "Selected formats: "
@@ -746,7 +787,7 @@ class VideoTextApp(ttk.Frame):
             args=(
                 ProcessingRequest(
                     mode=mode,
-                    source_path=str(source),
+                    source_path=source_path,
                     output_directory=output_folder,
                     formats=selected_formats,
                     progress_callback=self._queue_progress,
@@ -916,6 +957,16 @@ class VideoTextApp(ttk.Frame):
                     else ""
                 )
                 message += f"\n{progress.current:,} / {progress.total:,} frames{percentage}"
+            elif progress.stage == "download":
+                percentage = (
+                    f" ({progress.percentage:.0f}%)"
+                    if progress.percentage is not None
+                    else ""
+                )
+                message += (
+                    f"\n{format_bytes(progress.current)} of "
+                    f"{format_bytes(progress.total)}{percentage}"
+                )
             elif progress.stage == "ocr":
                 message += (
                     f"\nCandidate frame {progress.current} of {progress.total}"
@@ -926,8 +977,11 @@ class VideoTextApp(ttk.Frame):
             self.progress_bar.stop()
             self.progress_bar.configure(mode="determinate", maximum=progress.total)
             self.progress_value.set(progress.current)
-        elif progress.stage == "frame_selection" and progress.current is not None:
-            message += f"\n{progress.current:,} frames processed"
+        elif progress.stage in {"frame_selection", "download"} and progress.current is not None:
+            if progress.stage == "download":
+                message += f"\n{format_bytes(progress.current)} downloaded"
+            else:
+                message += f"\n{progress.current:,} frames processed"
             self.progress_bar.configure(mode="indeterminate")
             self.progress_bar.start(10)
         elif progress.stage == "complete":
