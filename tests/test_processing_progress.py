@@ -14,6 +14,7 @@ import gui
 import processing_service
 from models import Presentation
 from processing_service import (
+    PHASE_STAGES,
     ProcessingMode,
     ProcessingProgress,
     ProcessingRequest,
@@ -76,23 +77,23 @@ class ProcessingProgressTests(unittest.TestCase):
             progress_callback=events.append,
         )
 
-    def test_eta_is_absent_until_three_completed_items(self):
+    def test_non_ocr_eta_is_absent_until_three_completed_items(self):
         clock = FakeClock()
         events = []
         reporter = ProgressReporter(events.append, clock=clock)
-        reporter.stage("ocr", "Running OCR")
+        reporter.stage("reading_order", "Determining reading order")
         clock.value = 8
-        reporter.item("ocr", "Running OCR", 2, 5)
+        reporter.item("reading_order", "Determining reading order", 2, 5)
 
         self.assertIsNone(events[-1].estimated_remaining_seconds)
 
-    def test_eta_uses_elapsed_time_and_remaining_items_after_three(self):
+    def test_non_ocr_eta_uses_elapsed_time_and_remaining_items_after_three(self):
         clock = FakeClock()
         events = []
         reporter = ProgressReporter(events.append, clock=clock)
-        reporter.stage("ocr", "Running OCR")
+        reporter.stage("reading_order", "Determining reading order")
         clock.value = 12
-        reporter.item("ocr", "Running OCR", 3, 5)
+        reporter.item("reading_order", "Determining reading order", 3, 5)
 
         self.assertEqual(events[-1].elapsed_seconds, 12)
         self.assertEqual(events[-1].estimated_remaining_seconds, 8)
@@ -101,11 +102,31 @@ class ProcessingProgressTests(unittest.TestCase):
         clock = FakeClock()
         events = []
         reporter = ProgressReporter(events.append, clock=clock)
-        reporter.stage("ocr", "Running OCR")
+        reporter.stage("reading_order", "Determining reading order")
         clock.value = 6
-        reporter.item("ocr", "Running OCR", 6, 5)
+        reporter.item("reading_order", "Determining reading order", 6, 5)
 
         self.assertEqual(events[-1].estimated_remaining_seconds, 0)
+
+    def test_ocr_eta_requires_five_items_and_ten_seconds(self):
+        clock = FakeClock()
+        events = []
+        reporter = ProgressReporter(events.append, phase_stages=("ocr",), clock=clock)
+        reporter.stage("ocr", "Running OCR")
+
+        clock.value = 10
+        reporter.item("ocr", "Running OCR", 4, 65)
+        self.assertIsNone(events[-1].estimated_remaining_seconds)
+
+        clock.value = 9
+        reporter.item("ocr", "Running OCR", 5, 65)
+        self.assertIsNone(events[-1].estimated_remaining_seconds)
+
+        clock.value = 10
+        reporter.item("ocr", "Running OCR", 5, 65)
+        self.assertEqual(events[-1].estimated_remaining_seconds, 120)
+        self.assertEqual(events[-1].step_current, 1)
+        self.assertEqual(events[-1].step_total, 1)
 
     def test_frame_eta_waits_for_frame_and_time_thresholds(self):
         clock = FakeClock()
@@ -282,6 +303,17 @@ class ProcessingProgressTests(unittest.TestCase):
                 "complete",
             ],
         )
+        phase_events = [event for event in events if event.step_current is not None]
+        self.assertEqual(
+            [(event.stage, event.step_current, event.step_total) for event in phase_events if event.current is None],
+            [
+                ("frame_selection", 1, 5),
+                ("ocr", 2, 5),
+                ("reading_order", 3, 5),
+                ("consolidation", 4, 5),
+                ("export", 5, 5),
+            ],
+        )
 
     def test_full_mode_emits_shared_frame_selection_progress(self):
         video_path = self.root / "video.mp4"
@@ -353,6 +385,62 @@ class ProcessingProgressTests(unittest.TestCase):
         gui.VideoTextApp._reset_progress(app)
         self.assertEqual(app.progress_value.value, 0)
         self.assertEqual(app.progress_details.value, "")
+
+    def test_gui_stage_transition_clears_frame_counts_and_eta(self):
+        app = object.__new__(gui.VideoTextApp)
+        app.progress_bar = FakeProgressBar()
+        app.progress_value = FakeValue()
+        app.status = FakeValue()
+        app.progress_details = FakeValue()
+        app._append_log = lambda _message: None
+
+        gui.VideoTextApp._show_progress(app, ProcessingProgress(
+            "frame_selection", "Selecting stable frames", 900, 1000, 10, 1, 90, 1, 5,
+        ))
+        gui.VideoTextApp._show_progress(app, ProcessingProgress(
+            "ocr", "Running OCR", None, None, 0, None, None, 2, 5,
+        ))
+
+        self.assertEqual(app.progress_bar.configurations[-1]["mode"], "indeterminate")
+        self.assertIn("Step 2 of 5", app.status.value)
+        self.assertNotIn("900", app.status.value)
+        self.assertNotIn("Estimated", app.progress_details.value)
+        self.assertEqual(app.progress_details.value, "Phase elapsed: 0 seconds")
+
+    def test_reading_order_replay_numbers_only_its_two_executed_steps(self):
+        checkpoint = self.checkpoint("reading_order.pkl", [])
+        events = []
+
+        with (
+            patch.object(processing_service, "_create_presentation", return_value=Presentation()),
+            patch.object(processing_service, "export_all", return_value={}),
+        ):
+            process_request(self.request(ProcessingMode.READING_ORDER, checkpoint, events))
+
+        phases = [
+            (event.stage, event.step_current, event.step_total)
+            for event in events
+            if event.step_current is not None and event.current is None
+        ]
+        self.assertEqual(phases, [("consolidation", 1, 2), ("export", 2, 2)])
+
+    def test_phase_plans_exclude_skipped_replay_stages(self):
+        self.assertEqual(
+            PHASE_STAGES[ProcessingMode.FULL_VIDEO],
+            ("frame_selection", "ocr", "reading_order", "consolidation", "export"),
+        )
+        self.assertEqual(
+            PHASE_STAGES[ProcessingMode.CANDIDATE_FRAMES],
+            ("ocr", "reading_order", "consolidation", "export"),
+        )
+        self.assertEqual(
+            PHASE_STAGES[ProcessingMode.OCR_RESULTS],
+            ("reading_order", "consolidation", "export"),
+        )
+        self.assertEqual(
+            PHASE_STAGES[ProcessingMode.READING_ORDER],
+            ("consolidation", "export"),
+        )
 
     def test_gui_unknown_frame_total_remains_indeterminate_with_count(self):
         app = object.__new__(gui.VideoTextApp)

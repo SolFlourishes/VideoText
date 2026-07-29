@@ -67,6 +67,32 @@ class ProcessingMode(Enum):
     READING_ORDER = "reading_order"
 
 
+PHASE_STAGES = {
+    ProcessingMode.FULL_VIDEO: (
+        "frame_selection",
+        "ocr",
+        "reading_order",
+        "consolidation",
+        "export",
+    ),
+    ProcessingMode.CANDIDATE_FRAMES: (
+        "ocr",
+        "reading_order",
+        "consolidation",
+        "export",
+    ),
+    ProcessingMode.OCR_RESULTS: (
+        "reading_order",
+        "consolidation",
+        "export",
+    ),
+    ProcessingMode.READING_ORDER: (
+        "consolidation",
+        "export",
+    ),
+}
+
+
 CHECKPOINT_NAMES = {
     ProcessingMode.CANDIDATE_FRAMES: "candidate_frames.pkl",
     ProcessingMode.OCR_RESULTS: "ocr_results.pkl",
@@ -75,6 +101,11 @@ CHECKPOINT_NAMES = {
 
 PROGRESS_MINIMUM_FRAME_COUNT = 500
 PROGRESS_MINIMUM_ELAPSED_SECONDS = 5.0
+OCR_ETA_MINIMUM_ITEM_COUNT = 5
+OCR_ETA_MINIMUM_ELAPSED_SECONDS = 10.0
+ETA_POLICIES = {
+    "ocr": (OCR_ETA_MINIMUM_ITEM_COUNT, OCR_ETA_MINIMUM_ELAPSED_SECONDS),
+}
 
 
 @dataclass(frozen=True)
@@ -88,6 +119,8 @@ class ProcessingProgress:
     elapsed_seconds: float
     estimated_remaining_seconds: float | None
     percentage: float | None = None
+    step_current: int | None = None
+    step_total: int | None = None
 
 
 def format_duration(seconds: float) -> str:
@@ -110,6 +143,7 @@ class ProgressReporter:
     def __init__(
         self,
         callback: Optional[Callable[[ProcessingProgress], None]],
+        phase_stages: tuple[str, ...] = (),
         clock: Callable[[], float] = monotonic,
     ) -> None:
         self.callback = callback
@@ -117,13 +151,29 @@ class ProgressReporter:
         self.pipeline_started = clock()
         self.stage_started = self.pipeline_started
         self.total_elapsed_seconds = 0.0
+        self.phase_steps = {
+            stage: index
+            for index, stage in enumerate(phase_stages, start=1)
+        }
+        self.phase_total = len(phase_stages)
 
     def stage(self, stage: str, message: str) -> None:
         self.stage_started = self.clock()
         self._emit(stage, message, None, None)
 
     def item(self, stage: str, message: str, current: int, total: int) -> None:
-        self._emit(stage, message, current, total)
+        eta_minimum_current, eta_minimum_elapsed = ETA_POLICIES.get(
+            stage,
+            (3, 0.0),
+        )
+        self._emit(
+            stage,
+            message,
+            current,
+            total,
+            eta_minimum_current=eta_minimum_current,
+            eta_minimum_elapsed=eta_minimum_elapsed,
+        )
 
     def frame_selection(self, current: int, total: int | None) -> None:
         """Emit frame-analysis progress with the conservative frame ETA rule."""
@@ -188,6 +238,8 @@ class ProgressReporter:
             elapsed_seconds=elapsed_seconds,
             estimated_remaining_seconds=estimated_remaining_seconds,
             percentage=percentage,
+            step_current=self.phase_steps.get(stage),
+            step_total=self.phase_total if stage in self.phase_steps else None,
         ))
 
 
@@ -386,7 +438,10 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
     """Run precisely the pipeline stages required by a processing request."""
 
     output_root = Path(request.output_directory)
-    reporter = ProgressReporter(request.progress_callback)
+    reporter = ProgressReporter(
+        request.progress_callback,
+        phase_stages=PHASE_STAGES[request.mode],
+    )
 
     if request.mode is ProcessingMode.FULL_VIDEO:
         video_path = Path(request.source_path)
@@ -428,7 +483,7 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
             )
             save_cache(candidate_frames, cache_directory / "ocr_results.pkl")
 
-            reporter.stage("reading_order", "Reconstructing paragraphs")
+            reporter.stage("reading_order", "Determining reading order")
             candidate_frames = reconstruct_reading_order(
                 candidate_frames,
                 progress_callback=lambda current, total: reporter.item(
@@ -487,7 +542,7 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
         )
         save_cache(candidate_frames, cache_directory / "ocr_results.pkl")
 
-        reporter.stage("reading_order", "Reconstructing paragraphs")
+        reporter.stage("reading_order", "Determining reading order")
         candidate_frames = reconstruct_reading_order(
             candidate_frames,
             progress_callback=lambda current, total: reporter.item(
@@ -499,7 +554,7 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
     elif request.mode is ProcessingMode.OCR_RESULTS:
         save_cache(candidate_frames, cache_directory / "ocr_results.pkl")
 
-        reporter.stage("reading_order", "Reconstructing paragraphs")
+        reporter.stage("reading_order", "Determining reading order")
         candidate_frames = reconstruct_reading_order(
             candidate_frames,
             progress_callback=lambda current, total: reporter.item(

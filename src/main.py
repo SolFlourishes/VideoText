@@ -139,7 +139,12 @@ def _prompt_request(
 def _print_progress(progress: ProcessingProgress) -> None:
     """Display shared pipeline progress without calculating timing locally."""
 
-    message = progress.message
+    step = (
+        f"Step {progress.step_current} of {progress.step_total} — "
+        if progress.step_current is not None and progress.step_total is not None
+        else ""
+    )
+    message = step + progress.message
     if progress.current is not None and progress.total is not None:
         if progress.stage == "frame_selection":
             percentage = (

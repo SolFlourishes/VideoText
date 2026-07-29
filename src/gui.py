@@ -872,7 +872,7 @@ class VideoTextApp(ttk.Frame):
 
     def _show_batch_progress(self, batch_progress: BatchProgress) -> None:
         prefix = (
-            f"Processing video {batch_progress.current_item} of "
+            f"Video {batch_progress.current_item} of "
             f"{batch_progress.total_items}: {batch_progress.filename}"
         )
         if batch_progress.progress is None:
@@ -888,7 +888,11 @@ class VideoTextApp(ttk.Frame):
     ) -> None:
         """Render a worker event in Tkinter's main thread."""
 
-        message = progress.message
+        step = ""
+        if progress.step_current is not None and progress.step_total is not None:
+            step = f"Step {progress.step_current} of {progress.step_total}\n"
+
+        message = step + progress.message
         if progress.current is not None and progress.total is not None:
             if progress.stage == "frame_selection":
                 percentage = (
@@ -897,6 +901,10 @@ class VideoTextApp(ttk.Frame):
                     else ""
                 )
                 message += f"\n{progress.current:,} / {progress.total:,} frames{percentage}"
+            elif progress.stage == "ocr":
+                message += (
+                    f"\nCandidate frame {progress.current} of {progress.total}"
+                )
             else:
                 item_label = "frame " if progress.stage in {"ocr", "reading_order"} else ""
                 message += f" — {item_label}{progress.current} of {progress.total}"
@@ -915,15 +923,12 @@ class VideoTextApp(ttk.Frame):
             self.progress_bar.configure(mode="indeterminate")
             self.progress_bar.start(10)
 
-        details = f"Elapsed: {format_duration(progress.elapsed_seconds)}"
-        if progress.current is not None and progress.total:
-            if progress.estimated_remaining_seconds is None:
-                details += " | Estimating remaining time..."
-            else:
-                details += (
-                    " | Estimated remaining: "
-                    f"{format_duration(progress.estimated_remaining_seconds)}"
-                )
+        details = f"Phase elapsed: {format_duration(progress.elapsed_seconds)}"
+        if progress.estimated_remaining_seconds is not None:
+            details += (
+                " | Estimated phase remaining: "
+                f"{format_duration(progress.estimated_remaining_seconds)}"
+            )
 
         if prefix is not None:
             message = f"{prefix}\n{message}"
