@@ -79,6 +79,7 @@ class VideoTextApp(ttk.Frame):
         self.batch_paths: list[str] = []
         self.batch_excel_consolidated = tk.BooleanVar(value=False)
         self.batch_controls: list[ttk.Button] = []
+        self.batch_excel_controls: list[ttk.Radiobutton] = []
         # Keep the GUI's original all-formats default, then apply the saved
         # startup preference once.  Later preference saves do not alter an
         # in-progress session.
@@ -258,18 +259,21 @@ class VideoTextApp(ttk.Frame):
         self._add_batch_button("Clear List", self._clear_batch_list, 1, 3)
         self.batch_excel_frame = ttk.LabelFrame(self.batch_frame, text="Excel output", padding=6)
         self.batch_excel_frame.grid(row=2, column=0, columnspan=4, sticky="w")
-        ttk.Radiobutton(
+        per_video_excel = ttk.Radiobutton(
             self.batch_excel_frame,
             text="One workbook per video",
             value=False,
             variable=self.batch_excel_consolidated,
-        ).grid(row=0, column=0, padx=(0, 12), sticky="w")
-        ttk.Radiobutton(
+        )
+        per_video_excel.grid(row=0, column=0, padx=(0, 12), sticky="w")
+        consolidated_excel = ttk.Radiobutton(
             self.batch_excel_frame,
             text="One workbook for the entire batch",
             value=True,
             variable=self.batch_excel_consolidated,
-        ).grid(row=0, column=1, sticky="w")
+        )
+        consolidated_excel.grid(row=0, column=1, sticky="w")
+        self.batch_excel_controls.extend((per_video_excel, consolidated_excel))
 
         ttk.Label(self, text="Output Folder").grid(
             row=5,
@@ -535,7 +539,6 @@ class VideoTextApp(ttk.Frame):
                 sticky="ew",
                 pady=(0, 8),
             )
-            self._update_batch_excel_options()
         else:
             self.batch_frame.grid_remove()
             self.advanced_checkbutton.grid()
@@ -556,6 +559,8 @@ class VideoTextApp(ttk.Frame):
                 self.video_label.grid()
                 self.video_entry.grid()
                 self.video_browse_button.grid()
+
+        self._update_batch_excel_options()
 
     def _add_batch_videos(self) -> None:
         paths = filedialog.askopenfilenames(
@@ -615,10 +620,14 @@ class VideoTextApp(ttk.Frame):
     def _update_batch_excel_options(self) -> None:
         """Allow consolidated Excel only when Excel is selected for a batch."""
 
-        enabled = self.format_options["excel"].get()
-        self.batch_excel_frame.configure(state="normal" if enabled else "disabled")
-        for child in self.batch_excel_frame.winfo_children():
-            child.configure(state="normal" if enabled else "disabled")
+        enabled = (
+            self.run_mode.get() == "batch"
+            and self.format_options["excel"].get()
+        )
+        # LabelFrame is a layout container and does not support ``state``.
+        # Only the two interactive Excel-choice radiobuttons are enabled.
+        for control in self.batch_excel_controls:
+            control.configure(state="normal" if enabled else "disabled")
         if not enabled:
             self.batch_excel_consolidated.set(False)
 
@@ -844,8 +853,9 @@ class VideoTextApp(ttk.Frame):
                 self._set_status(str(error))
                 return
 
+        checkpoint_path = Path(source_path) if source_path else None
         if mode is not ProcessingMode.FULL_VIDEO and (
-            not source_path or not source.exists()
+            checkpoint_path is None or not checkpoint_path.exists()
         ):
             self._set_status("Select a valid checkpoint file or prior run folder.")
             return
