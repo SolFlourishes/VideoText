@@ -13,7 +13,7 @@ from openpyxl import load_workbook
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from csv_exporter import export_csv
-from excel_exporter import export_excel
+from excel_exporter import MAX_CONTENT_ROW_HEIGHT, export_excel
 from markdown_exporter import export_markdown
 from models import Presentation, Slide, TextLine, TextParagraph, TextType
 
@@ -77,6 +77,7 @@ class ExcelExporterTests(unittest.TestCase):
         self.assertTrue(worksheet["A10"].font.bold)
         self.assertTrue(worksheet["A10"].alignment.wrap_text)
         self.assertEqual(worksheet["A10"].alignment.vertical, "center")
+        self.assertLessEqual(worksheet.row_dimensions[10].height, 20)
 
     def test_original_text_is_preserved_and_translation_is_blank(self):
         original = "One line"
@@ -131,6 +132,70 @@ class ExcelExporterTests(unittest.TestCase):
             worksheet["B11"].value,
             "Heading\n• existing\n- dash\n◦ circle",
         )
+
+    def test_long_text_uses_wrapping_top_alignment_and_a_taller_row(self):
+        short_text = "Short text"
+        long_text = "Long extracted text " * 35
+        worksheet = self.export_workbook([
+            TextParagraph(short_text, text_type=TextType.BODY),
+            TextParagraph(long_text, text_type=TextType.BODY),
+        ])
+
+        self.assertEqual(worksheet["B11"].value, short_text)
+        self.assertEqual(worksheet["B12"].value, long_text)
+        self.assertTrue(worksheet["B12"].alignment.wrap_text)
+        self.assertEqual(worksheet["B12"].alignment.vertical, "top")
+        self.assertGreater(
+            worksheet.row_dimensions[12].height,
+            worksheet.row_dimensions[11].height,
+        )
+
+    def test_explicit_newlines_increase_height_and_the_cap_is_applied(self):
+        newline_text = "\n".join(["a short source line"] * 8)
+        very_long_text = "x" * 5000
+        worksheet = self.export_workbook([
+            TextParagraph("One line", text_type=TextType.BODY),
+            TextParagraph(newline_text, text_type=TextType.BODY),
+            TextParagraph(very_long_text, text_type=TextType.BODY),
+        ])
+
+        self.assertGreater(
+            worksheet.row_dimensions[12].height,
+            worksheet.row_dimensions[11].height,
+        )
+        self.assertEqual(worksheet.row_dimensions[13].height, MAX_CONTENT_ROW_HEIGHT)
+        self.assertEqual(
+            worksheet["B12"].value,
+            "\n".join([
+                "a short source line",
+                *["• a short source line"] * 7,
+            ]),
+        )
+        self.assertEqual(worksheet["B13"].value, very_long_text)
+
+    def test_text_columns_are_bounded_and_workbook_reopens_with_unicode(self):
+        text = "Résumé\n漢字\nПривет"
+        presentation = Presentation(
+            metadata={"video_path": "D:/Videos/sample.mp4"},
+            slides=[Slide(
+                slide_number=1,
+                start_time=0.0,
+                end_time=1.0,
+                paragraphs=[TextParagraph(text, text_type=TextType.BODY)],
+            )],
+        )
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_path = Path(temporary_directory) / "export.xlsx"
+            export_excel(presentation, str(output_path))
+            worksheet = load_workbook(output_path).active
+
+        self.assertLessEqual(worksheet.column_dimensions["B"].width, 80)
+        self.assertLessEqual(worksheet.column_dimensions["C"].width, 80)
+        self.assertGreaterEqual(worksheet.column_dimensions["B"].width, 50)
+        self.assertEqual(worksheet["B11"].value, "Résumé\n• 漢字\n• Привет")
+        self.assertEqual(worksheet.freeze_panes, "A11")
+        self.assertEqual(worksheet.auto_filter.ref, "A10:C11")
 
     def test_markdown_and_csv_exports_remain_unchanged(self):
         presentation = Presentation(slides=[

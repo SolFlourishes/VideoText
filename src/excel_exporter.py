@@ -7,12 +7,17 @@ Exports reconstructed presentations to Excel.
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from datetime import datetime
+from math import ceil
 from pathlib import Path
 
 from models import Presentation
 
 
 BASE_ROW_HEIGHT = 15
+MIN_CONTENT_ROW_HEIGHT = 15
+MAX_CONTENT_ROW_HEIGHT = 300
+TEXT_COLUMN_WIDTH = 60
+HEADER_ROW_HEIGHT = 20
 BULLET_PREFIXES = ("•", "-", "◦", "▪", "○", "*")
 TITLE_ROW = 1
 METADATA_START_ROW = 2
@@ -59,6 +64,25 @@ def _format_paragraph_text(paragraph) -> tuple[str, int]:
             formatted_lines.append(f"• {line}")
 
     return "\n".join(formatted_lines), max(1, len(formatted_lines))
+
+
+def _estimate_wrapped_lines(text: str, column_width: float) -> int:
+    """Estimate visible Excel lines from explicit breaks and bounded width."""
+    characters_per_line = max(1, int(column_width))
+    lines = text.splitlines() or [""]
+    return sum(max(1, ceil(len(line) / characters_per_line)) for line in lines)
+
+
+def _estimate_row_height(*cell_texts: str) -> float:
+    """Return a bounded height for the most demanding wrapped cell in a row."""
+    visible_lines = max(
+        _estimate_wrapped_lines(text, TEXT_COLUMN_WIDTH)
+        for text in cell_texts
+    )
+    return min(
+        MAX_CONTENT_ROW_HEIGHT,
+        max(MIN_CONTENT_ROW_HEIGHT, BASE_ROW_HEIGHT * visible_lines),
+    )
 
 
 def _video_name(presentation: Presentation) -> str:
@@ -125,11 +149,13 @@ def export_excel(
         cell.fill = HEADER_FILL
         cell.alignment = Alignment(wrap_text=True, vertical="center")
 
+    worksheet.row_dimensions[TABLE_HEADER_ROW].height = HEADER_ROW_HEIGHT
+
     worksheet.freeze_panes = f"A{TABLE_START_ROW}"
 
     for slide in presentation.slides:
         for paragraph in slide.paragraphs:
-            paragraph_text, line_count = _format_paragraph_text(paragraph)
+            paragraph_text, _line_count = _format_paragraph_text(paragraph)
 
             row_number = worksheet.max_row + 1
             worksheet.cell(row=row_number, column=1, value=slide.slide_number)
@@ -147,13 +173,14 @@ def export_excel(
                 wrap_text=True,
                 vertical="top",
             )
-            worksheet.row_dimensions[row_number].height = (
-                BASE_ROW_HEIGHT * line_count
+            worksheet.row_dimensions[row_number].height = _estimate_row_height(
+                paragraph_text,
+                "",
             )
 
     worksheet.column_dimensions["A"].width = 10
-    worksheet.column_dimensions["B"].width = 60
-    worksheet.column_dimensions["C"].width = 60
+    worksheet.column_dimensions["B"].width = TEXT_COLUMN_WIDTH
+    worksheet.column_dimensions["C"].width = TEXT_COLUMN_WIDTH
     worksheet.auto_filter.ref = f"A{TABLE_HEADER_ROW}:C{worksheet.max_row}"
 
     workbook.save(output_path)
