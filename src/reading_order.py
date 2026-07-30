@@ -1,5 +1,5 @@
 from models import CandidateFrame
-from text_reconstruction import reconstruct_lines
+from text_reconstruction import reconstruct_lines_with_metadata
 from structure_detection import detect_structure
 from paragraph_reconstruction import reconstruct_paragraphs
 
@@ -33,7 +33,7 @@ def reconstruct_reading_order(
         )
 
         frame.ocr_results = filtered_results
-        frame.text_lines = reconstruct_lines(filtered_results)
+        frame.text_lines, frame.line_reconstruction_metadata = reconstruct_lines_with_metadata(filtered_results)
 
         detect_structure(frame)
 

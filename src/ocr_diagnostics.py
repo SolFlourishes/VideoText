@@ -41,6 +41,10 @@ class OCRDiagnosticRegion:
     bounding_box: list[float]
     recognized_text: str
     confidence: float | None
+    line_id: int | None = None
+    within_line_position: int | None = None
+    suppressed_as_overlap_duplicate: bool = False
+    suppression_reason: str | None = None
     flags: tuple[str, ...] = ()
 
 
@@ -150,6 +154,10 @@ class OCRDiagnosticsWriter:
                     if warning not in self.run_warnings:
                         self.run_warnings.append(warning)
             current_indices: dict[tuple[str, float | None, tuple[float, ...]], list[int]] = {}
+            line_metadata = {
+                tuple(item.bounding_box): item
+                for item in getattr(frame, "line_reconstruction_metadata", [])
+            }
             for reading_order_index, result in enumerate(frame.ocr_results, start=1):
                 current_indices.setdefault(_region_signature(result), []).append(reading_order_index)
             updated_regions = []
@@ -160,6 +168,7 @@ class OCRDiagnosticsWriter:
                 flags = list(region.flags)
                 if reading_order_index is None:
                     flags.append("not_in_reading_order")
+                metadata = line_metadata.get(tuple(region.bounding_box))
                 updated_regions.append(OCRDiagnosticRegion(
                     region_id=region.region_id,
                     source_index=region.source_index,
@@ -167,6 +176,10 @@ class OCRDiagnosticsWriter:
                     bounding_box=list(region.bounding_box),
                     recognized_text=region.recognized_text,
                     confidence=region.confidence,
+                    line_id=None if metadata is None else metadata.line_id,
+                    within_line_position=None if metadata is None else metadata.within_line_position,
+                    suppressed_as_overlap_duplicate=False if metadata is None else metadata.suppressed,
+                    suppression_reason=None if metadata is None else metadata.suppression_reason,
                     flags=tuple(flags),
                 ))
             diagnostic_frame.regions = updated_regions
@@ -258,6 +271,10 @@ class OCRDiagnosticsWriter:
                     "bounding_box": region.bounding_box,
                     "recognized_text": region.recognized_text,
                     "confidence": region.confidence,
+                    "line_id": region.line_id,
+                    "within_line_position": region.within_line_position,
+                    "suppressed_as_overlap_duplicate": region.suppressed_as_overlap_duplicate,
+                    "suppression_reason": region.suppression_reason,
                     "flags": list(region.flags),
                 }
                 for region in frame.regions
