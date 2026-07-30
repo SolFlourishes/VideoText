@@ -9,6 +9,7 @@ from time import monotonic
 from cache_manager import load_cache, save_cache
 from export_manager import export_all
 from models import Presentation
+from ocr_diagnostics import DiagnosticOptions, OCRDiagnosticsWriter
 from run_workspace import (
     create_replay_run_directory,
     create_run_directory,
@@ -294,6 +295,7 @@ class ProcessingRequest:
     output_directory: Path
     formats: list[str]
     progress_callback: Optional[Callable[[ProcessingProgress], None]] = None
+    diagnostic_options: DiagnosticOptions | None = None
 
 
 @dataclass(frozen=True)
@@ -450,9 +452,20 @@ def _finish_run(
     output_stem: str,
     metadata: dict[str, object],
     reporter: ProgressReporter,
+    diagnostics: OCRDiagnosticsWriter | None = None,
 ) -> ProcessingResult:
     reporter.stage("consolidation", "Consolidating slides")
     presentation = _create_presentation(candidate_frames, metadata)
+    if diagnostics is not None:
+        diagnostics.capture_slides(presentation.slides)
+        try:
+            diagnostics.write(run_directory)
+        except Exception as error:
+            message = f"OCR diagnostics were not written: {type(error).__name__}: {error}"
+            diagnostics.failures.append(message)
+            print(message)
+            if diagnostics.options.strict:
+                raise
 
     reporter.stage("export", "Exporting files")
     exported_paths = export_all(
@@ -488,6 +501,11 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
     reporter = ProgressReporter(
         request.progress_callback,
         phase_stages=PHASE_STAGES[request.mode],
+    )
+    diagnostics = (
+        OCRDiagnosticsWriter(request.diagnostic_options, request.source_path)
+        if request.diagnostic_options is not None
+        else None
     )
 
     if request.mode is ProcessingMode.FULL_VIDEO:
@@ -527,6 +545,8 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
                         total,
                     ),
                 )
+                if diagnostics is not None:
+                    diagnostics.capture_ocr_frames(candidate_frames)
                 save_cache(candidate_frames, cache_directory / "ocr_results.pkl")
 
                 reporter.stage("reading_order", "Determining reading order")
@@ -539,6 +559,8 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
                         total,
                     ),
                 )
+                if diagnostics is not None:
+                    diagnostics.capture_reconstructed_frames(candidate_frames)
                 save_cache(candidate_frames, cache_directory / "reading_order.pkl")
 
                 return _finish_run(
@@ -548,6 +570,7 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
                     output_stem,
                     {"video_path": str(resolved_video_path)},
                     reporter,
+                    diagnostics,
                 )
             finally:
                 video.release()
@@ -588,6 +611,8 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
                 "ocr", "Running OCR", current, total,
             ),
         )
+        if diagnostics is not None:
+            diagnostics.capture_ocr_frames(candidate_frames)
         save_cache(candidate_frames, cache_directory / "ocr_results.pkl")
 
         reporter.stage("reading_order", "Determining reading order")
@@ -597,10 +622,14 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
                 "reading_order", "Reconstructing paragraphs", current, total,
             ),
         )
+        if diagnostics is not None:
+            diagnostics.capture_reconstructed_frames(candidate_frames)
         save_cache(candidate_frames, cache_directory / "reading_order.pkl")
 
     elif request.mode is ProcessingMode.OCR_RESULTS:
         save_cache(candidate_frames, cache_directory / "ocr_results.pkl")
+        if diagnostics is not None:
+            diagnostics.capture_ocr_frames(candidate_frames)
 
         reporter.stage("reading_order", "Determining reading order")
         candidate_frames = reconstruct_reading_order(
@@ -609,10 +638,17 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
                 "reading_order", "Reconstructing paragraphs", current, total,
             ),
         )
+        if diagnostics is not None:
+            diagnostics.capture_reconstructed_frames(candidate_frames)
         save_cache(candidate_frames, cache_directory / "reading_order.pkl")
 
     elif request.mode is ProcessingMode.READING_ORDER:
         save_cache(candidate_frames, cache_directory / "reading_order.pkl")
+        if diagnostics is not None:
+            diagnostics.capture_reconstructed_frames(
+                candidate_frames,
+                raw_sequence_available=False,
+            )
 
     return _finish_run(
         candidate_frames,
@@ -621,4 +657,5 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
         output_stem,
         metadata,
         reporter,
+        diagnostics,
     )

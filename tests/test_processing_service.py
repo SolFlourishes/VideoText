@@ -16,6 +16,7 @@ import gui
 import main
 import processing_service
 from models import Presentation
+from ocr_diagnostics import DiagnosticError, DiagnosticOptions
 from processing_service import (
     CheckpointLoadError,
     CheckpointValidationError,
@@ -223,6 +224,57 @@ class ProcessingServiceTests(unittest.TestCase):
         self.assertTrue((result.run_directory / "cache" / "candidate_frames.pkl").is_file())
         self.assertTrue((result.run_directory / "cache" / "ocr_results.pkl").is_file())
         self.assertTrue((result.run_directory / "cache" / "reading_order.pkl").is_file())
+        self.assertFalse((result.run_directory / "diagnostics").exists())
+
+    def test_non_strict_diagnostic_failure_does_not_fail_processing(self):
+        checkpoint = self.checkpoint("reading_order.pkl")
+        request = ProcessingRequest(
+            mode=ProcessingMode.READING_ORDER,
+            source_path=str(checkpoint),
+            output_directory=self.output_root,
+            formats=["markdown"],
+            diagnostic_options=DiagnosticOptions(
+                output_directory=self.root / "diagnostics",
+                all_candidate_frames=True,
+            ),
+        )
+        ocr, reading_order, exporter, create_presentation = self.resume_patches()
+
+        with (
+            ocr,
+            reading_order,
+            exporter,
+            create_presentation,
+            patch.object(processing_service.OCRDiagnosticsWriter, "write", side_effect=DiagnosticError("disk unavailable")),
+        ):
+            result = process_request(request)
+
+        self.assertEqual(result.mode, ProcessingMode.READING_ORDER)
+
+    def test_strict_diagnostic_failure_is_surfaced(self):
+        checkpoint = self.checkpoint("reading_order.pkl")
+        request = ProcessingRequest(
+            mode=ProcessingMode.READING_ORDER,
+            source_path=str(checkpoint),
+            output_directory=self.output_root,
+            formats=["markdown"],
+            diagnostic_options=DiagnosticOptions(
+                output_directory=self.root / "diagnostics",
+                all_candidate_frames=True,
+                strict=True,
+            ),
+        )
+        ocr, reading_order, exporter, create_presentation = self.resume_patches()
+
+        with (
+            ocr,
+            reading_order,
+            exporter,
+            create_presentation,
+            patch.object(processing_service.OCRDiagnosticsWriter, "write", side_effect=DiagnosticError("disk unavailable")),
+            self.assertRaisesRegex(DiagnosticError, "disk unavailable"),
+        ):
+            process_request(request)
 
     def test_full_processing_uses_the_resolved_local_video_path(self):
         video = MagicMock()
