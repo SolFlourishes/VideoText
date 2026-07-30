@@ -1,5 +1,5 @@
 from models import CandidateFrame
-from text_reconstruction import reconstruct_lines
+from text_reconstruction import reconstruct_lines_with_metadata
 from structure_detection import detect_structure
 from paragraph_reconstruction import reconstruct_paragraphs
 
@@ -8,13 +8,14 @@ MIN_CONFIDENCE = 0.60
 
 def reconstruct_reading_order(
     candidate_frames: list[CandidateFrame],
+    progress_callback=None,
 ) -> list[CandidateFrame]:
     """
     Filters low-confidence OCR results and sorts the remaining text
     into an approximate reading order (top-to-bottom, left-to-right).
     """
 
-    for frame in candidate_frames:
+    for index, frame in enumerate(candidate_frames, start=1):
 
         # Remove low-confidence detections
         filtered_results = [
@@ -32,7 +33,7 @@ def reconstruct_reading_order(
         )
 
         frame.ocr_results = filtered_results
-        frame.text_lines = reconstruct_lines(filtered_results)
+        frame.text_lines, frame.line_reconstruction_metadata = reconstruct_lines_with_metadata(filtered_results)
 
         detect_structure(frame)
 
@@ -51,5 +52,8 @@ def reconstruct_reading_order(
             )
 
         reconstruct_paragraphs(frame)
+
+        if progress_callback is not None:
+            progress_callback(index, len(candidate_frames))
 
     return candidate_frames

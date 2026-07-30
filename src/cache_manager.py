@@ -27,11 +27,3 @@ def load_cache(filename):
 
     with open(filename, "rb") as file:
         return pickle.load(file)
-
-
-def cache_exists(filename):
-    """
-    Return True if a cache file exists.
-    """
-
-    return Path(filename).exists()

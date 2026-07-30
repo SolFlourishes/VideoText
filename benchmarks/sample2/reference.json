@@ -1,0 +1,15 @@
+{
+  "video": "sample2.mp4",
+  "slides": [
+    {
+      "slide_id": "1",
+      "frame_index": 0,
+      "reference_text": "Activating Event"
+    },
+    {
+      "slide_id": "2",
+      "frame_index": 120,
+      "reference_text": "After an hour or two of sitting in front of the computer"
+    }
+  ]
+}

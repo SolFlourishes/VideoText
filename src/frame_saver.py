@@ -29,7 +29,11 @@ def save_candidate_frames(candidate_frames, output_folder):
 
         filepath = output_path / filename
 
-        cv2.imwrite(str(filepath), frame.image)
+        if not cv2.imwrite(str(filepath), frame.image):
+            raise OSError(
+                "Candidate-frame image could not be written: "
+                f"{filepath}"
+            )
 
     print(f"\nSaved {len(candidate_frames)} images to:")
     print(output_path.resolve())

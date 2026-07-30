@@ -1,0 +1,4 @@
+# Build-only dependency for the reproducible Windows executable.
+pyinstaller==6.21.0
+# VideoText.spec explicitly copies this PaddleX runtime metadata.
+imagesize==2.0.0

@@ -1,3 +1,25 @@
+Version 1.2.0 – OCR Accuracy and Reconstruction Release
+
+New Features
+
+Reusable CER/WER accuracy benchmarking and expanded OCR diagnostic exports.
+Manifest-driven preprocessing validation across 9 representative frames, 7 variants, and 63 successful OCR runs.
+
+Enhancements
+
+Improved geometry-based OCR text reconstruction and reading order.
+Safer edge-aware duplicate suppression, including correction of the regression that removed legitimate interior words.
+Punctuation-aware joining of OCR regions.
+
+Production Decision
+
+Original preprocessing remains the production default. No experimental preprocessing variant consistently improved overall accuracy across the multi-frame benchmark.
+Preprocessing variants remain diagnostic and experimental only.
+
+Known Limitations
+
+OCR recognition errors have not been eliminated; exported text should continue to be reviewed where accuracy is important.
+
 Version 0.4.0 – Reconstruction Engine Complete
 
 New Features

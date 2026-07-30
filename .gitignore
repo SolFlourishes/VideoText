@@ -13,6 +13,12 @@ venv/
 
 # Output
 output/
+paragraph_reconstruction_debug.txt
+
+# PyInstaller generated build output
+build/
+dist/
+packaging/VideoText_version.txt
 
 # Sample videos
 sample_videos/
