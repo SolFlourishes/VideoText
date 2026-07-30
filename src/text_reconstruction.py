@@ -113,6 +113,17 @@ def _overlap_fraction(smaller: NormalizedOCRRegion, larger: NormalizedOCRRegion)
     return (width * height) / max(1.0, (smaller.right - smaller.left) * (smaller.bottom - smaller.top))
 
 
+def _overlapping_text_edges(smaller: NormalizedOCRRegion, larger: NormalizedOCRRegion) -> tuple[bool, bool]:
+    """Return whether the smaller region overlaps the larger left/right edge."""
+
+    larger_width = max(1.0, larger.right - larger.left)
+    edge_tolerance = larger_width * 0.25
+    return (
+        smaller.right <= larger.left + edge_tolerance,
+        smaller.left >= larger.right - edge_tolerance,
+    )
+
+
 def detect_overlapping_duplicate_regions(regions: list[NormalizedOCRRegion]) -> tuple[set[int], dict[int, str]]:
     """Suppress only small, geometrically overlapping token duplicates."""
 
@@ -130,10 +141,20 @@ def detect_overlapping_duplicate_regions(regions: list[NormalizedOCRRegion]) -> 
             if small_area >= large_area or _overlap_fraction(smaller, larger) < MIN_SMALL_REGION_OVERLAP:
                 continue
             large_text = " ".join(larger.result.text.lower().split())
-            large_tokens = _normalized_tokens(large_text)
-            if small_text in large_tokens or large_text.startswith(small_text + " ") or large_text.endswith(" " + small_text):
+            overlaps_left, overlaps_right = _overlapping_text_edges(smaller, larger)
+            is_prefix_duplicate = overlaps_left and (
+                large_text == small_text or large_text.startswith(small_text + " ")
+            )
+            is_suffix_duplicate = overlaps_right and (
+                large_text == small_text or large_text.endswith(" " + small_text)
+            )
+            if is_prefix_duplicate or is_suffix_duplicate:
                 suppressed.add(smaller.source_index)
-                reasons[smaller.source_index] = "small overlapping region duplicates text in a larger region"
+                reasons[smaller.source_index] = (
+                    "small overlapping region duplicates the "
+                    + ("prefix" if is_prefix_duplicate else "suffix")
+                    + " of a larger region"
+                )
                 break
     return suppressed, reasons
 
