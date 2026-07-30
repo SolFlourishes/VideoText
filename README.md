@@ -131,7 +131,7 @@ Install the required packages:
 pip install -r requirements.txt
 ```
 
-Run the application using the appropriate entry point in the `src` directory.
+Run the application using python src/main.py
 
 > The precise launch command may change as packaging is finalized. See the project and packaging documentation for the current development workflow.
 
