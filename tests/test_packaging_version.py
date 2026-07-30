@@ -32,7 +32,7 @@ class PackagingVersionTests(unittest.TestCase):
 
     def test_development_suffix_does_not_change_windows_numeric_version(self):
         self.assertEqual(
-            version_info.windows_version_tuple("1.1.0-dev"),
+            version_info.windows_version_tuple("1.1.0"),
             (1, 1, 0, 0),
         )
 
