@@ -68,6 +68,39 @@ class TextReconstructionTests(unittest.TestCase):
         self.assertEqual(reconstruct_lines([region("café", [0, 0, 50, 20])])[0].text, "café")
         self.assertEqual(reconstruct_lines([region("Hello", [0, 0, 50, 20]), region(", world", [51, 0, 100, 20])])[0].text, "Hello, world")
 
+    def test_overlapping_boundary_fragments_are_stitched(self):
+        cases = [
+            ("A", "ctivating", "Activating"),
+            ("Ef", "ffective", "Effective"),
+            ("evi", "idence", "evidence"),
+            ("Challenging", "g Thoughts", "Challenging Thoughts"),
+            ("wake", "e up", "wake up"),
+            ("sitting", "g in front of", "sitting in front of"),
+            ("I'm already a", "accepted", "I'm already accepted"),
+        ]
+
+        for left, right, expected in cases:
+            with self.subTest(left=left, right=right):
+                line = reconstruct_lines([
+                    region(left, [0, 0, 100, 30]),
+                    region(right, [80, 0, 220, 30]),
+                ])[0]
+                self.assertEqual(line.text, expected)
+
+    def test_boundary_stitching_preserves_words_and_punctuation(self):
+        self.assertEqual(reconstruct_lines([
+            region("help", [0, 0, 100, 30]),
+            region("my", [80, 0, 150, 30]),
+        ])[0].text, "help my")
+        self.assertEqual(reconstruct_lines([
+            region("ordinary", [0, 0, 100, 30]),
+            region("words", [110, 0, 190, 30]),
+        ])[0].text, "ordinary words")
+        self.assertEqual(reconstruct_lines([
+            region("Hello", [0, 0, 100, 30]),
+            region(", world", [101, 0, 220, 30]),
+        ])[0].text, "Hello, world")
+
     def test_deterministic_output_does_not_mutate_source(self):
         regions = [region("right", [50, 0, 100, 20]), region("left", [0, 0, 40, 20])]
         original = regions[0].bounding_box.copy()

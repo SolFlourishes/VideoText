@@ -159,18 +159,72 @@ def detect_overlapping_duplicate_regions(regions: list[NormalizedOCRRegion]) -> 
     return suppressed, reasons
 
 
+def _shared_boundary_length(left_text: str, right_text: str) -> int:
+    """Return the longest case-insensitive suffix/prefix character overlap."""
+
+    maximum = min(len(left_text), len(right_text))
+    for length in range(maximum, 0, -1):
+        if left_text[-length:].casefold() == right_text[:length].casefold():
+            return length
+    return 0
+
+
+def _stitch_overlapping_boundary(
+    left: NormalizedOCRRegion,
+    right: NormalizedOCRRegion,
+) -> str | None:
+    """Return one conservative merge for adjacent overlapping OCR regions.
+
+    OCR sometimes emits two regions that share one or more characters at their
+    physical boundary.  Only a positive horizontal overlap permits stitching;
+    ordinary adjacent words retain their normal separating space.  The special
+    one-uppercase-character case joins a split leading capital such as
+    ``A`` + ``ctivating`` without inventing any character.
+    """
+
+    left_text = left.result.text.strip()
+    right_text = right.result.text.strip()
+
+    if not left_text or not right_text or right.left >= left.right:
+        return None
+
+    shared_length = _shared_boundary_length(left_text, right_text)
+    if shared_length:
+        # Remove only characters that are already present on both sides.
+        return left_text[:-shared_length] + right_text
+
+    if (
+        len(left_text) == 1
+        and left_text.isupper()
+        and right_text[0].islower()
+    ):
+        return left_text + right_text
+
+    return None
+
+
 def _join_region_text(regions: list[NormalizedOCRRegion]) -> str:
     text = ""
+    previous_region: NormalizedOCRRegion | None = None
+    previous_fragment = ""
+
     for region in regions:
         fragment = region.result.text.strip()
         if not fragment:
             continue
         if not text:
             text = fragment
-        elif fragment[0] in ".,;:!?)]}" or text[-1] in "([{":
-            text += fragment
-        else:
-            text += " " + fragment
+        elif previous_region is not None:
+            stitched = _stitch_overlapping_boundary(previous_region, region)
+            if stitched is not None:
+                # The previous raw fragment is the current text suffix.
+                text = text[:-len(previous_fragment)] + stitched
+            elif fragment[0] in ".,;:!?)]}" or text[-1] in "([{":
+                text += fragment
+            else:
+                text += " " + fragment
+        previous_region = region
+        previous_fragment = fragment
     return text
 
 

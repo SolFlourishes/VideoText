@@ -5,7 +5,9 @@ Exports reconstructed presentations to Excel.
 """
 
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.comments import Comment
+from openpyxl.styles import Alignment, Font, PatternFill, Protection
+from openpyxl.worksheet.datavalidation import DataValidation
 from datetime import datetime
 from math import ceil
 from pathlib import Path
@@ -18,53 +20,38 @@ BASE_ROW_HEIGHT = 15
 MIN_CONTENT_ROW_HEIGHT = 15
 MAX_CONTENT_ROW_HEIGHT = 300
 TEXT_COLUMN_WIDTH = 60
+VERIFIED_COLUMN_WIDTH = 12
 HEADER_ROW_HEIGHT = 20
-BULLET_PREFIXES = ("•", "-", "◦", "▪", "○", "*")
 TITLE_ROW = 1
 METADATA_START_ROW = 2
 TABLE_HEADER_ROW = 10
 TABLE_START_ROW = TABLE_HEADER_ROW + 1
 TITLE_TEXT = "VideoText Translation Workbook"
-TABLE_HEADERS = ("Slide", "Original Text", "Translated Text")
+TABLE_HEADERS = (
+    "Slide",
+    "Original Text",
+    "Initial AI Translation",
+    "Modified Translation",
+    "Verified",
+)
 HEADER_FILL = PatternFill(fill_type="solid", fgColor="D9EAF7")
-
-
-def _paragraph_lines(paragraph) -> list[str]:
-    """Return visual source lines when available, otherwise text lines."""
-
-    source_lines = [line.text for line in paragraph.lines]
-
-    if sum(bool(line.strip()) for line in source_lines) > 1:
-        return source_lines
-
-    return paragraph.text.splitlines()
+SOURCE_REFERENCE_FILL = PatternFill(fill_type="solid", fgColor="F2F2F2")
+AI_TRANSLATION_FILL = PatternFill(fill_type="solid", fgColor="EAF1FB")
+MODIFIED_TRANSLATION_FILL = PatternFill(fill_type="solid", fgColor="EAF6EA")
+VERIFIED_FILL = PatternFill(fill_type="solid", fgColor="FFF6D8")
+MODIFIED_TRANSLATION_NOTE = "Make edits to the AI Translation here if needed."
+VERIFIED_INPUT_MESSAGE = "Verify translation is accurate (Yes / No)."
 
 
 def _format_paragraph_text(paragraph) -> tuple[str, int]:
-    """Format continuation lines for one readable spreadsheet cell."""
+    """Return canonical paragraph prose without inventing list markers.
 
-    lines = _paragraph_lines(paragraph)
+    Paragraph reconstruction has already preserved any genuine bullet or
+    numbered marker in ``paragraph.text``.  Excel should wrap ordinary prose
+    naturally rather than turning visual continuation lines into new bullets.
+    """
 
-    if sum(bool(line.strip()) for line in lines) < 2:
-        return paragraph.text, 1
-
-    formatted_lines: list[str] = []
-    first_content_line = True
-
-    for line in lines:
-        if not line.strip():
-            formatted_lines.append(line)
-            continue
-
-        if first_content_line:
-            formatted_lines.append(line)
-            first_content_line = False
-        elif line.lstrip().startswith(BULLET_PREFIXES):
-            formatted_lines.append(line)
-        else:
-            formatted_lines.append(f"• {line}")
-
-    return "\n".join(formatted_lines), max(1, len(formatted_lines))
+    return paragraph.text, max(1, len(paragraph.text.splitlines()))
 
 
 def _estimate_wrapped_lines(text: str, column_width: float) -> int:
@@ -105,7 +92,7 @@ def _video_name(presentation: Presentation) -> str:
 def _write_metadata(worksheet, presentation: Presentation) -> None:
     """Write editable translation metadata above the slide table."""
 
-    worksheet.merge_cells("A1:C1")
+    worksheet.merge_cells("A1:E1")
     title_cell = worksheet.cell(row=TITLE_ROW, column=1, value=TITLE_TEXT)
     title_cell.font = Font(bold=True, size=16)
     title_cell.alignment = Alignment(vertical="center")
@@ -124,9 +111,11 @@ def _write_metadata(worksheet, presentation: Presentation) -> None:
     for offset, (label, value) in enumerate(metadata):
         row = METADATA_START_ROW + offset
         worksheet.cell(row=row, column=1, value=label).font = Font(bold=True)
-        worksheet.merge_cells(start_row=row, start_column=2, end_row=row, end_column=3)
+        worksheet.merge_cells(start_row=row, start_column=2, end_row=row, end_column=5)
         value_cell = worksheet.cell(row=row, column=2, value=value)
         value_cell.alignment = Alignment(wrap_text=True, vertical="top")
+        # Preserve the existing editable metadata fields outside the table.
+        value_cell.protection = Protection(locked=False)
 
     worksheet.row_dimensions[METADATA_START_ROW + len(metadata) - 1].height = 36
 
@@ -166,17 +155,66 @@ def write_presentation_worksheet(worksheet, presentation: Presentation) -> None:
         for paragraph in slide.paragraphs:
             paragraph_text, _line_count = _format_paragraph_text(paragraph)
             row_number = worksheet.max_row + 1
-            worksheet.cell(row=row_number, column=1, value=slide.slide_number)
+            slide_cell = worksheet.cell(row=row_number, column=1, value=slide.slide_number)
+            slide_cell.protection = Protection(locked=True)
+            slide_cell.fill = SOURCE_REFERENCE_FILL
             original_text_cell = worksheet.cell(row=row_number, column=2, value=paragraph_text)
             original_text_cell.alignment = Alignment(wrap_text=True, vertical="top")
-            translated_text_cell = worksheet.cell(row=row_number, column=3, value="")
-            translated_text_cell.alignment = Alignment(wrap_text=True, vertical="top")
-            worksheet.row_dimensions[row_number].height = _estimate_row_height(paragraph_text, "")
+            original_text_cell.protection = Protection(locked=True)
+            original_text_cell.fill = SOURCE_REFERENCE_FILL
+
+            ai_translation_cell = worksheet.cell(row=row_number, column=3, value="")
+            ai_translation_cell.alignment = Alignment(wrap_text=True, vertical="top")
+            ai_translation_cell.protection = Protection(locked=True)
+            ai_translation_cell.fill = AI_TRANSLATION_FILL
+
+            modified_translation_cell = worksheet.cell(row=row_number, column=4, value="")
+            modified_translation_cell.alignment = Alignment(wrap_text=True, vertical="top")
+            modified_translation_cell.protection = Protection(locked=False)
+            modified_translation_cell.fill = MODIFIED_TRANSLATION_FILL
+            modified_translation_cell.comment = Comment(
+                MODIFIED_TRANSLATION_NOTE,
+                "VideoText",
+            )
+
+            verified_cell = worksheet.cell(row=row_number, column=5, value="")
+            verified_cell.protection = Protection(locked=False)
+            verified_cell.fill = VERIFIED_FILL
+            worksheet.row_dimensions[row_number].height = _estimate_row_height(
+                paragraph_text,
+                "",
+                "",
+            )
 
     worksheet.column_dimensions["A"].width = 10
     worksheet.column_dimensions["B"].width = TEXT_COLUMN_WIDTH
     worksheet.column_dimensions["C"].width = TEXT_COLUMN_WIDTH
-    worksheet.auto_filter.ref = f"A{TABLE_HEADER_ROW}:C{worksheet.max_row}"
+    worksheet.column_dimensions["D"].width = TEXT_COLUMN_WIDTH
+    worksheet.column_dimensions["E"].width = VERIFIED_COLUMN_WIDTH
+    worksheet.auto_filter.ref = f"A{TABLE_HEADER_ROW}:E{worksheet.max_row}"
+
+    verification = DataValidation(
+        type="list",
+        formula1='"Yes,No"',
+        allow_blank=True,
+    )
+    verification.promptTitle = "Verified"
+    verification.prompt = VERIFIED_INPUT_MESSAGE
+    verification.showInputMessage = True
+    worksheet.add_data_validation(verification)
+    if worksheet.max_row >= TABLE_START_ROW:
+        verification.add(f"E{TABLE_START_ROW}:E{worksheet.max_row}")
+
+    # No password is set: protected cells stay read-only while translators can
+    # edit columns D/E, select editable cells, resize columns, and filter.
+    worksheet.protection.sheet = True
+    # Sheet-protection flags use ``True`` to prohibit an action.  Keep both
+    # selections permitted so Excel can select—and therefore edit—the
+    # explicitly unlocked translation and verification cells.
+    worksheet.protection.selectLockedCells = False
+    worksheet.protection.selectUnlockedCells = False
+    worksheet.protection.formatColumns = False
+    worksheet.protection.autoFilter = False
 
 
 def export_excel(

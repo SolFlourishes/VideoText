@@ -52,7 +52,7 @@ class BatchExcelExporterTests(unittest.TestCase):
             self.assertEqual(worksheet["A1"].value, "VideoText Translation Workbook")
             self.assertEqual(worksheet["B11"].value, "Extracted text")
             self.assertEqual(worksheet.freeze_panes, "A11")
-            self.assertEqual(worksheet.auto_filter.ref, "A10:C11")
+            self.assertEqual(worksheet.auto_filter.ref, "A10:E11")
 
     def test_empty_presentations_do_not_create_a_workbook(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

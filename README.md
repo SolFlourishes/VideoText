@@ -4,7 +4,16 @@
 
 Instead of performing OCR on every video frame, VideoText identifies stable presentation frames, extracts visible text, reconstructs reading order and paragraph structure, consolidates repeated observations, and exports the results into usable document formats.
 
-> **Current version: 1.2.0**
+> **Current version: 1.2.1**
+## New in Version 1.2.1
+
+- Improved OCR boundary stitching
+- Cleaner paragraph reconstruction
+- Translation-ready Excel workflow
+- Protected translation workbook
+- Human verification workflow
+- Numerous OCR accuracy improvements
+- Improved packaging and stability
 
 ## Why VideoText?
 
@@ -20,6 +29,16 @@ VideoText can help:
 * Researchers analyze presentation-based video collections
 * Content creators repurpose material from recorded slides
 * Institutions preserve editable versions of instructional content
+
+## VideoText in Action
+
+### Select and process a presentation video
+
+![VideoText application window](docs/images/main.png)
+
+### Convert visible slide content into editable output
+
+![VideoText reconstructed output](docs/images/processing-complete.png)
 
 ## Current Capabilities
 
