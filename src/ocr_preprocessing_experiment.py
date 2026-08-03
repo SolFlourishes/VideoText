@@ -21,7 +21,7 @@ import numpy as np
 from accuracy_benchmark import AlignmentCounts, calculate_character_error_rate, calculate_word_error_rate
 from models import OCRResult
 from ocr_preprocessing import OCRPreprocessingResult, apply_preprocessing_variant, list_preprocessing_variants
-from reading_order import MIN_CONFIDENCE
+from config import MIN_CONFIDENCE
 from text_reconstruction import reconstruct_lines
 
 

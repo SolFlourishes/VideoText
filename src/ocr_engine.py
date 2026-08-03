@@ -61,8 +61,10 @@ def perform_ocr(candidate_frames, progress_callback=None):
         # Run OCR
         result = ocr.predict(frame.image)
 
-        # Clear any previous OCR results
-        frame.ocr_results.clear()
+        # Build two independent containers around the same parsed OCRResult
+        # objects.  Reading order may later replace only ``ocr_results`` with
+        # its confidence-filtered working collection.
+        parsed_results = []
 
         if result:
 
@@ -74,14 +76,16 @@ def perform_ocr(candidate_frames, progress_callback=None):
 
             for text, score, box in zip(texts, scores, boxes):
                 
-                frame.ocr_results.append(
+                parsed_results.append(
                     OCRResult(
                         text=text,
                         confidence=float(score),
                         bounding_box=box,
                     )
                 )
-                                
+
+        frame.raw_ocr_results = list(parsed_results)
+        frame.ocr_results = list(parsed_results)
 
         print(f"    Found {len(frame.ocr_results)} text regions.")
 

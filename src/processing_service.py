@@ -8,7 +8,7 @@ from time import monotonic
 
 from cache_manager import load_cache, save_cache
 from export_manager import export_all
-from models import Presentation
+from models import Presentation, ensure_raw_ocr_results
 from ocr_diagnostics import DiagnosticOptions, OCRDiagnosticsWriter
 from run_workspace import (
     create_replay_run_directory,
@@ -445,6 +445,13 @@ def _create_presentation(candidate_frames, metadata: dict[str, object]) -> Prese
     )
 
 
+def _normalize_raw_ocr_evidence(candidate_frames) -> None:
+    """Adapt loaded checkpoint frames before later stages replace working OCR."""
+
+    for frame in candidate_frames:
+        ensure_raw_ocr_results(frame)
+
+
 def _finish_run(
     candidate_frames,
     request: ProcessingRequest,
@@ -587,6 +594,7 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
         request.mode,
         request.source_path,
     )
+    _normalize_raw_ocr_evidence(candidate_frames)
     reporter.stage("checkpoint", f"Resolved checkpoint: {checkpoint_path}")
 
     output_stem, run_directory = create_replay_run_directory(

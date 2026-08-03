@@ -1,9 +1,8 @@
-from models import CandidateFrame
+from models import CandidateFrame, ensure_raw_ocr_results
+from config import MIN_CONFIDENCE
 from text_reconstruction import reconstruct_lines_with_metadata
 from structure_detection import detect_structure
 from paragraph_reconstruction import reconstruct_paragraphs
-
-MIN_CONFIDENCE = 0.60
 
 
 def reconstruct_reading_order(
@@ -16,6 +15,10 @@ def reconstruct_reading_order(
     """
 
     for index, frame in enumerate(candidate_frames, start=1):
+
+        # Legacy checkpoints may lack raw evidence.  Normalize it before the
+        # working list is replaced by confidence-filtered OCR results.
+        ensure_raw_ocr_results(frame)
 
         # Remove low-confidence detections
         filtered_results = [
