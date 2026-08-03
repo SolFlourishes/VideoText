@@ -7,6 +7,7 @@ Initial desktop GUI shell for VideoText.
 import os
 from pathlib import Path
 import queue
+import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, scrolledtext, ttk
@@ -49,6 +50,16 @@ from processing_service import (
     process_request,
 )
 from video_source import VideoSource, VideoSourceError
+
+
+def _application_icon_path() -> Path:
+    """Return the bundled VideoText icon for the main Tkinter window."""
+
+    if getattr(sys, "frozen", False):
+        resource_root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    else:
+        resource_root = Path(__file__).resolve().parent.parent
+    return resource_root / "icons" / "VT-icon.ico"
 
 
 class VideoTextApp(ttk.Frame):
@@ -129,6 +140,7 @@ class VideoTextApp(ttk.Frame):
 
     def _build_layout(self) -> None:
         self.master.title("VideoText")
+        self.master.iconbitmap(default=str(_application_icon_path()))
         self.master.minsize(650, 500)
 
         self.grid(sticky="nsew")

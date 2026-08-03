@@ -40,20 +40,6 @@ def reconstruct_reading_order(
 
         detect_structure(frame)
 
-        #
-        # Temporary Debug
-        #
-        print(f"\nFrame {frame.frame_number}")
-        min_left = min(line.left for line in frame.text_lines) if frame.text_lines else 0
-
-        for line in frame.text_lines:
-            print(
-                f"{line.text_type.name:10} "
-                f"Left={line.left:4} "
-                f"Indent={line.left - min_left:4} "
-                f"'{line.text}'"
-            )
-
         reconstruct_paragraphs(frame)
 
         if progress_callback is not None:

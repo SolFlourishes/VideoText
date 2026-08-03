@@ -1,9 +1,11 @@
 """Focused regression tests for retained raw OCR evidence."""
 
+import io
 import pickle
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -87,6 +89,17 @@ class RawOCREvidenceTests(unittest.TestCase):
 
         self.assertEqual([item.text for item in source.ocr_results], ["visible"])
         self.assertEqual([item.text for item in source.raw_ocr_results], ["visible", "hidden"])
+        self.assertEqual([line.text for line in source.text_lines], ["visible"])
+
+    def test_reading_order_has_no_temporary_console_dump(self):
+        source = frame()
+        source.ocr_results = [region("visible", 0.95, 0)]
+
+        console = io.StringIO()
+        with redirect_stdout(console):
+            reconstruct_reading_order([source])
+
+        self.assertEqual(console.getvalue(), "")
         self.assertEqual([line.text for line in source.text_lines], ["visible"])
 
     def test_legacy_frame_without_raw_evidence_is_normalized_safely(self):

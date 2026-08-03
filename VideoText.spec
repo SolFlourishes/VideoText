@@ -15,6 +15,7 @@ from PyInstaller.utils.hooks import (
 PROJECT_ROOT = Path(SPECPATH).resolve()
 SOURCE_DIRECTORY = PROJECT_ROOT / "src"
 PACKAGING_DIRECTORY = PROJECT_ROOT / "packaging"
+ICON_FILE = PROJECT_ROOT / "icons" / "VT-icon.ico"
 sys.path.insert(0, str(SOURCE_DIRECTORY))
 sys.path.insert(0, str(PACKAGING_DIRECTORY))
 
@@ -67,6 +68,7 @@ hiddenimports += collect_submodules("paddle")
 datas = collect_data_files("paddleocr", include_py_files=False)
 datas += collect_data_files("paddlex", include_py_files=False)
 datas += collect_data_files("paddle", include_py_files=False)
+datas += [(str(ICON_FILE), "icons")]
 
 binaries = collect_dynamic_libs("paddle")
 binaries += collect_dynamic_libs("paddlex")
@@ -114,6 +116,7 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,
+    icon=str(ICON_FILE),
     version=str(VERSION_FILE),
 )
 
