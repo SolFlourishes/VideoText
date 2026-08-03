@@ -37,10 +37,27 @@ Markdown
 Readable, editable text for notes, documents, and text editors.
 
 CSV
-Simple row-based data for analysis, import, and lightweight editing.
+Simple row-based data for analysis, import, and lightweight editing. Each
+processing CSV appends these document-level OCR Quality fields:
+ocr_region_count, ocr_confidence_minimum, ocr_confidence_maximum,
+ocr_confidence_mean, ocr_confidence_median, ocr_below_threshold_count,
+ocr_below_threshold_proportion, and ocr_confidence_threshold.
 
 Excel Translation Workbook
-A formatted workbook for review and translation. Translators can edit the blank Translated Text column while keeping the reconstructed original text available for reference.
+A formatted workbook for review and translation. Translators can edit the
+Modified Translation and Verified columns while the original reference text
+remains protected.
+
+OCR Quality
+
+The completion summary reports how many OCR regions were found and their mean,
+median, and minimum confidence. It also reports regions below the active 60%
+threshold. VideoText keeps the original OCR evidence for these statistics,
+including regions later excluded from reconstruction.
+
+Confidence statistics are descriptive only. They do not rewrite or correct
+OCR text. Review low-confidence regions against the source video when accuracy
+matters.
 
 Batch Processing
 
@@ -172,6 +189,13 @@ def get_about_sections() -> tuple[tuple[str, tuple[str, ...]], ...]:
                 "• VideoText does not require administrator rights.",
                 "• VideoText does not create Windows registry entries.",
                 "• VideoText does not install or run background services.",
+            ),
+        ),
+        (
+            "OCR Quality",
+            (
+                "â€¢ OCR Quality statistics describe the original OCR evidence.",
+                "â€¢ Low-confidence regions are not automatically rewritten or corrected.",
             ),
         ),
     )

@@ -100,12 +100,16 @@ class VideoTextApp(ttk.Frame):
         menu_bar = tk.Menu(self.master)
         file_menu = tk.Menu(menu_bar, tearoff=False)
         self.recent_sources_menu = tk.Menu(file_menu, tearoff=False)
-        file_menu.add_cascade(label="Recent Sources", menu=self.recent_sources_menu)
+        file_menu.add_cascade(
+            label="Recent Sources",
+            underline=0,
+            menu=self.recent_sources_menu,
+        )
         file_menu.add_command(label="Clear Recent Sources", command=self._clear_recent_sources)
-        menu_bar.add_cascade(label="File", menu=file_menu)
+        menu_bar.add_cascade(label="File", underline=0, menu=file_menu)
         edit_menu = tk.Menu(menu_bar, tearoff=False)
         edit_menu.add_command(label="Preferences...", command=self._show_preferences)
-        menu_bar.add_cascade(label="Edit", menu=edit_menu)
+        menu_bar.add_cascade(label="Edit", underline=0, menu=edit_menu)
         help_menu = tk.Menu(menu_bar, tearoff=False)
         help_menu.add_command(
             label="How to Use VideoText",
@@ -119,7 +123,7 @@ class VideoTextApp(ttk.Frame):
             label="About VideoText",
             command=self._show_about,
         )
-        menu_bar.add_cascade(label="Help", menu=help_menu)
+        menu_bar.add_cascade(label="Help", underline=0, menu=help_menu)
         self.master.configure(menu=menu_bar)
         self._refresh_recent_sources_menu()
 
@@ -471,6 +475,7 @@ class VideoTextApp(ttk.Frame):
         def close_dialog() -> None:
             self.preferences_dialog = None
             dialog.destroy()
+            self._restore_main_focus()
 
         def restore_defaults() -> None:
             defaults = Preferences()
@@ -510,6 +515,7 @@ class VideoTextApp(ttk.Frame):
         save_button.grid(row=0, column=2)
         dialog.protocol("WM_DELETE_WINDOW", close_dialog)
         dialog.bind("<Escape>", lambda _event: close_dialog())
+        dialog.bind("<Return>", lambda _event: save_dialog())
         save_button.focus_set()
 
     def _remember_selected_folder(self, field_name: str, folder: Path) -> None:
@@ -748,11 +754,13 @@ class VideoTextApp(ttk.Frame):
 
         def close_dialog() -> None:
             dialog.destroy()
+            self._restore_main_focus()
 
         close_button = ttk.Button(button_frame, text="Close", command=close_dialog)
         close_button.grid(row=0, column=0)
         dialog.protocol("WM_DELETE_WINDOW", close_dialog)
         dialog.bind("<Escape>", lambda _event: close_dialog())
+        dialog.bind("<Return>", lambda _event: close_dialog())
         close_button.focus_set()
 
     def _browse_output_folder(self) -> None:
@@ -1118,6 +1126,12 @@ class VideoTextApp(ttk.Frame):
         self.processing = False
         self.progress_bar.stop()
         self.process_button.configure(state="normal")
+        self._restore_main_focus()
+
+    def _restore_main_focus(self) -> None:
+        """Return keyboard users to the primary action after a dialog closes."""
+
+        self.process_button.focus_set()
 
     def _open_output_folder(self, folder: Path) -> None:
         """Open a user-requested successful output folder without affecting success."""
@@ -1205,6 +1219,7 @@ class VideoTextApp(ttk.Frame):
         def close_dialog() -> None:
             dialog.grab_release()
             dialog.destroy()
+            self._restore_main_focus()
 
         ttk.Button(
             button_frame,
@@ -1253,6 +1268,7 @@ class VideoTextApp(ttk.Frame):
 
         def close_dialog() -> None:
             dialog.destroy()
+            self._restore_main_focus()
 
         button_frame = ttk.Frame(dialog)
         button_frame.grid(row=2, column=0, columnspan=2, sticky="e", padx=12, pady=(6, 12))
@@ -1265,6 +1281,7 @@ class VideoTextApp(ttk.Frame):
         close_button.grid(row=0, column=1)
         dialog.protocol("WM_DELETE_WINDOW", close_dialog)
         dialog.bind("<Escape>", lambda _event: close_dialog())
+        dialog.bind("<Return>", lambda _event: close_dialog())
         close_button.focus_set()
 
     def _append_log(self, message: str) -> None:
@@ -1357,6 +1374,7 @@ def _insert_formatted_user_guide(text_widget: tk.Text, content: str) -> None:
             "Video URLs",
             "Processing Stages",
             "Export Formats",
+            "OCR Quality",
             "Batch Processing",
             "Recent Sources",
             "Advanced Mode (Replay)",

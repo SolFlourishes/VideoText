@@ -50,6 +50,7 @@ class HelpAboutTests(unittest.TestCase):
             "Markdown",
             "CSV",
             "Excel",
+            "OCR Quality",
             "Troubleshooting",
         ):
             with self.subTest(required_text=required_text):
@@ -63,6 +64,28 @@ class HelpAboutTests(unittest.TestCase):
         self.assertIn("administrator rights", content)
         self.assertIn("registry", content)
         self.assertIn("background services", content)
+        self.assertIn("ocr quality", content)
+        self.assertIn("not automatically rewritten", content)
+
+    def test_user_guide_explains_version_13_ocr_quality_and_csv_fields(self):
+        content = get_how_to_use_text().lower()
+
+        for field in (
+            "ocr_region_count",
+            "ocr_confidence_minimum",
+            "ocr_confidence_maximum",
+            "ocr_confidence_mean",
+            "ocr_confidence_median",
+            "ocr_below_threshold_count",
+            "ocr_below_threshold_proportion",
+            "ocr_confidence_threshold",
+        ):
+            with self.subTest(field=field):
+                self.assertIn(field, content)
+        self.assertIn("active 60%", content)
+        self.assertIn("descriptive only", content)
+        self.assertIn("do not rewrite or correct", content)
+        self.assertIn("low-confidence regions", content)
 
     def test_accuracy_validation_topic_covers_expected_sections(self):
         content = get_accuracy_validation_text()
@@ -87,7 +110,7 @@ class HelpAboutTests(unittest.TestCase):
 
     def test_shared_application_metadata_is_available_for_about_and_packaging(self):
         self.assertEqual(APP_NAME, "VideoText")
-        self.assertEqual(APP_RELEASE, "1.2.1")
+        self.assertEqual(APP_RELEASE, "1.3.0")
         self.assertEqual(APP_STATUS, "Release")
         self.assertEqual(APP_COPYRIGHT, "© 2026 Sol Roberts-Lieb")
 
@@ -176,6 +199,7 @@ class HelpAboutTests(unittest.TestCase):
             "What VideoText Does",
             "Privacy and Storage",
             "Application Information",
+            "OCR Quality",
         ):
             self.assertIn(section, get_about_text())
         for tag in (
@@ -220,6 +244,64 @@ class HelpAboutTests(unittest.TestCase):
             "about_body",
             "about_footer",
         }.issubset(text.tags))
+
+    def test_accessible_menu_mnemonics_and_dialog_keyboard_bindings_exist(self):
+        source = Path(gui.__file__).read_text(encoding="utf-8")
+
+        self.assertIn('label="File", underline=0', source)
+        self.assertIn('label="Edit", underline=0', source)
+        self.assertIn('label="Help", underline=0', source)
+        self.assertGreaterEqual(source.count('dialog.bind("<Return>"'), 4)
+
+    def test_dialog_close_restores_focus_to_the_primary_action(self):
+        class FocusTarget:
+            def __init__(self):
+                self.focused = False
+
+            def focus_set(self):
+                self.focused = True
+
+        app = object.__new__(gui.VideoTextApp)
+        app.process_button = FocusTarget()
+
+        gui.VideoTextApp._restore_main_focus(app)
+
+        self.assertTrue(app.process_button.focused)
+
+    def test_dialog_sizing_stays_within_the_available_screen_area(self):
+        class Dialog:
+            def __init__(self):
+                self.geometry_value = ""
+
+            def winfo_screenwidth(self):
+                return 800
+
+            def winfo_screenheight(self):
+                return 600
+
+            def geometry(self, value):
+                self.geometry_value = value
+
+        class Parent:
+            def update_idletasks(self):
+                pass
+
+            def winfo_rootx(self):
+                return 100
+
+            def winfo_rooty(self):
+                return 80
+
+            def winfo_width(self):
+                return 400
+
+            def winfo_height(self):
+                return 300
+
+        dialog = Dialog()
+        gui._center_dialog(dialog, Parent(), preferred_width=1200, preferred_height=900)
+
+        self.assertEqual(dialog.geometry_value, "720x480+0+0")
 
 
 if __name__ == "__main__":

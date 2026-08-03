@@ -28,7 +28,7 @@ version_info = load_version_helper()
 
 class PackagingVersionTests(unittest.TestCase):
     def test_release_becomes_a_four_part_windows_version(self):
-        self.assertEqual(version_info.windows_version_tuple(), (1, 2, 1, 0))
+        self.assertEqual(version_info.windows_version_tuple(), (1, 3, 0, 0))
 
     def test_development_suffix_does_not_change_windows_numeric_version(self):
         self.assertEqual(

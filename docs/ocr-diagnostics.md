@@ -74,6 +74,26 @@ evidence differs. CER/WER and diagnostics still do not by themselves identify
 whether the cause is recognition, reading order, reconstruction, or
 consolidation.
 
+## OCR Quality summary
+
+The normal VideoText completion dialog and processing CSV provide a
+document-level OCR Quality summary. They preserve the original OCR regions
+before reading-order confidence filtering, then report the region count,
+minimum, maximum, mean, median, count and proportion below threshold, and the
+active threshold. The CSV appends these eight fields:
+`ocr_region_count`, `ocr_confidence_minimum`, `ocr_confidence_maximum`,
+`ocr_confidence_mean`, `ocr_confidence_median`,
+`ocr_below_threshold_count`, `ocr_below_threshold_proportion`, and
+`ocr_confidence_threshold`.
+
+The active processing threshold is 60%. A region below 60% is counted in the
+summary even if it is later excluded from reconstruction. These statistics are
+descriptive only: VideoText does not rewrite or correct OCR text. Review
+low-confidence regions against the source video when exact wording matters.
+
+The diagnostics command's separate default reporting threshold of 0.80 is
+only for diagnostic flags and does not change processing or exported text.
+
 ## Privacy
 
 Diagnostics export source-frame images and recognized text. Those artifacts

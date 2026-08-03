@@ -4,16 +4,13 @@
 
 Instead of performing OCR on every video frame, VideoText identifies stable presentation frames, extracts visible text, reconstructs reading order and paragraph structure, consolidates repeated observations, and exports the results into usable document formats.
 
-> **Current version: 1.2.1**
-## New in Version 1.2.1
+> **Current version: 1.3.0**
+## New in Version 1.3.0
 
-- Improved OCR boundary stitching
-- Cleaner paragraph reconstruction
-- Translation-ready Excel workflow
-- Protected translation workbook
-- Human verification workflow
-- Numerous OCR accuracy improvements
-- Improved packaging and stability
+- Preserved raw OCR evidence for each candidate frame
+- Frame-level and document-level OCR confidence statistics
+- OCR confidence fields in CSV exports
+- OCR Quality details in the processing-complete dialog
 
 ## Why VideoText?
 
@@ -177,11 +174,15 @@ Markdown output is intended to provide readable, editable text with reconstructe
 
 ### CSV
 
-CSV output provides structured data suitable for analysis, review, comparison, and import into other applications.
+CSV output provides structured data suitable for analysis, review, comparison, and import into other applications. Processing exports append document-level OCR confidence fields for region count, minimum, maximum, mean, median, low-confidence count and proportion, and the active threshold.
 
 ### Excel
 
 Excel output provides a familiar tabular format for reviewing extracted text and associated metadata.
+
+### OCR Confidence
+
+VideoText preserves the original OCR regions before confidence filtering so confidence statistics describe the complete OCR evidence, including regions later excluded from reconstruction. The completion dialog shows document-level OCR Quality details, and CSV exports include the same summary fields. Confidence statistics are descriptive: low-confidence regions do not rewrite or correct the extracted text.
 
 ## Accuracy and Validation
 
