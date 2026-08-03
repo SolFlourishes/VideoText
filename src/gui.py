@@ -1194,7 +1194,8 @@ class VideoTextApp(ttk.Frame):
         )
         summary_text.insert(
             "1.0",
-            _format_completion_dialog_text(format_processing_summary(result)),
+            _format_completion_dialog_text(format_processing_summary(result))
+            + _format_ocr_quality_section(result.ocr_confidence_statistics),
         )
         summary_text.configure(state="disabled")
 
@@ -1556,6 +1557,31 @@ def _format_completion_dialog_text(summary: str) -> str:
         lines.extend((label, f"    {path}", ""))
 
     return "\n".join(lines).rstrip()
+
+
+def _format_ocr_quality_section(statistics) -> str:
+    """Format the immutable shared OCR summary for the completion dialog."""
+
+    if statistics is None:
+        return ""
+
+    lines = ["", "", "OCR Quality", "--------------------"]
+    lines.append(f"OCR regions: {statistics.region_count:,}")
+    if statistics.region_count == 0:
+        lines.append("Confidence statistics unavailable")
+        lines.append(f"Active threshold: {statistics.threshold:.1%}")
+        return "\n".join(lines)
+
+    lines.extend((
+        f"Mean confidence: {statistics.mean:.1%}",
+        f"Median confidence: {statistics.median:.1%}",
+        f"Minimum confidence: {statistics.minimum:.1%}",
+        "Below "
+        f"{statistics.threshold:.0%}: {statistics.below_threshold_count} regions "
+        f"({statistics.below_threshold_proportion:.1%})",
+        f"Active threshold: {statistics.threshold:.1%}",
+    ))
+    return "\n".join(lines)
 
 
 def main() -> None:

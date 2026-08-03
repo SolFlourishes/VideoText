@@ -9,6 +9,10 @@ from time import monotonic
 from cache_manager import load_cache, save_cache
 from export_manager import export_all
 from models import Presentation, ensure_raw_ocr_results
+from ocr_confidence_stats import (
+    DocumentOCRConfidenceStats,
+    calculate_document_ocr_confidence_stats,
+)
 from ocr_diagnostics import DiagnosticOptions, OCRDiagnosticsWriter
 from run_workspace import (
     create_replay_run_directory,
@@ -310,6 +314,9 @@ class ProcessingResult:
     resolved_checkpoint_path: Path | None
     frame_count: int | None
     elapsed_seconds: float
+    # A transient descriptive summary for consumers such as the GUI.  It is
+    # deliberately not persisted on the canonical Presentation model.
+    ocr_confidence_statistics: DocumentOCRConfidenceStats | None = None
 
 
 MODE_LABELS = {
@@ -463,6 +470,11 @@ def _finish_run(
 ) -> ProcessingResult:
     reporter.stage("consolidation", "Consolidating slides")
     presentation = _create_presentation(candidate_frames, metadata)
+    # Calculate once from preserved raw evidence and share the immutable result
+    # with export and GUI-facing completion handling.
+    ocr_confidence_statistics = calculate_document_ocr_confidence_stats(
+        candidate_frames
+    )
     if diagnostics is not None:
         diagnostics.capture_slides(presentation.slides)
         try:
@@ -486,7 +498,7 @@ def _finish_run(
             current,
             total,
         ),
-        candidate_frames=candidate_frames,
+        ocr_confidence_statistics=ocr_confidence_statistics,
     )
 
     reporter.complete()
@@ -499,6 +511,7 @@ def _finish_run(
         resolved_checkpoint_path=metadata.get("resolved_checkpoint_path"),
         frame_count=len(candidate_frames),
         elapsed_seconds=reporter.total_elapsed_seconds,
+        ocr_confidence_statistics=ocr_confidence_statistics,
     )
 
 

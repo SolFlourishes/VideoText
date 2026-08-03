@@ -78,11 +78,17 @@ def calculate_document_ocr_confidence_stats(
     """Describe all preserved raw OCR evidence across a document's frames."""
 
     frame_count = len(frames)
-    frames_with_ocr = sum(bool(frame.raw_ocr_results) for frame in frames)
+    # Treat incomplete legacy/test frame-like objects as frames with no raw
+    # evidence.  Canonical CandidateFrame instances always provide this list.
+    raw_results_by_frame = [
+        getattr(frame, "raw_ocr_results", ()) or ()
+        for frame in frames
+    ]
+    frames_with_ocr = sum(bool(results) for results in raw_results_by_frame)
     confidences = [
         result.confidence
-        for frame in frames
-        for result in frame.raw_ocr_results
+        for raw_results in raw_results_by_frame
+        for result in raw_results
     ]
     region_count = len(confidences)
     below_threshold_count = sum(
