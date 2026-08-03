@@ -4,13 +4,14 @@
 
 Instead of performing OCR on every video frame, VideoText identifies stable presentation frames, extracts visible text, reconstructs reading order and paragraph structure, consolidates repeated observations, and exports the results into usable document formats.
 
-> **Current version: 1.3.0**
-## New in Version 1.3.0
+> **Current version: 1.4.0**
+## New in Version 1.4.0
 
-- Preserved raw OCR evidence for each candidate frame
-- Frame-level and document-level OCR confidence statistics
-- OCR confidence fields in CSV exports
-- OCR Quality details in the processing-complete dialog
+- Engine-neutral OCR contract with a PaddleOCR adapter
+- Deterministic engine registration and discovery
+- Paddle remains the only built-in and default OCR engine
+- Preprocessing experiments and benchmarks use the shared OCR contract
+- Clear VideoText Windows application icon
 
 ## Why VideoText?
 
@@ -43,7 +44,7 @@ VideoText currently supports:
 
 * Local video-file analysis
 * Stable-frame and presentation-state detection
-* OCR using PaddleOCR
+* Engine-neutral OCR processing with PaddleOCR as the default engine
 * Reading-order reconstruction
 * Paragraph and text-block reconstruction
 * Duplicate and near-duplicate consolidation
@@ -68,7 +69,8 @@ VideoText processes a video through several stages:
    It identifies points where presentation content has stabilized rather than treating every frame as unique.
 
 3. **Text recognition**
-   PaddleOCR detects visible words and their screen coordinates.
+   The OCR engine contract returns visible words and their screen coordinates.
+   Version 1.4 uses PaddleOCR through the built-in Paddle adapter.
 
 4. **Geometric reconstruction**
    Detected text is organized using its position, alignment, spacing, and reading order.
@@ -183,6 +185,16 @@ Excel output provides a familiar tabular format for reviewing extracted text and
 ### OCR Confidence
 
 VideoText preserves the original OCR regions before confidence filtering so confidence statistics describe the complete OCR evidence, including regions later excluded from reconstruction. The completion dialog shows document-level OCR Quality details, and CSV exports include the same summary fields. Confidence statistics are descriptive: low-confidence regions do not rewrite or correct the extracted text.
+
+### OCR Engine Framework
+
+VideoText uses a small OCR engine contract so the processing pipeline receives
+the same canonical OCR regions regardless of the underlying engine. Version
+1.4 registers Paddle as the only built-in and default engine; there is no GUI
+or command-line engine selector. Additional engines and comparisons are planned
+for Version 1.5. Preprocessing experiments and benchmarks use this same
+contract. The manual Paddle probe remains a developer diagnostic for inspecting
+raw PaddleOCR responses directly.
 
 ## Accuracy and Validation
 

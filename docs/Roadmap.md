@@ -26,7 +26,7 @@ Deterministic processing
 Improvements should be measurable and benchmarked.
 Avoid generative "magic fixes."
 Current Release
-Version 1.3.0
+Version 1.4.0
 
 Status: Current Release
 
@@ -72,7 +72,7 @@ OCR benchmarking framework
 CER/WER evaluation
 OCR diagnostics
 OCR confidence statistics
-Version 1.4
+Version 1.4 — Completed
 Theme
 
 OCR Engine Framework
@@ -81,20 +81,21 @@ Release Goal
 
 Decouple OCR from the VideoText processing pipeline so any compliant OCR engine can be substituted without changing downstream processing.
 
-Planned Features
-OCR engine interface
-OCR abstraction layer
-PaddleOCR adapter (default implementation)
-Plug-in architecture
-Engine registration and discovery
-Shared OCR result contract
-Preserve replay compatibility
-Preserve OCR confidence support
+Completed Features
+OCR engine interface and shared OCR result contract
+PaddleOCR adapter (the only built-in default implementation)
+Deterministic engine registration and discovery
+Replay compatibility and OCR confidence preservation
+Preprocessing experiments and benchmarks using the shared OCR contract
+
+Version 1.4 deliberately does not provide GUI or command-line engine
+selection. The manual Paddle probe remains a raw-response diagnostic exception.
 Out of Scope
 Additional OCR engines
-GUI engine selection
+GUI or command-line engine selection
+External plugin loading
 OCR engine comparison
-CER/WER benchmarking
+CER/WER benchmarking changes
 Evaluation reports
 OCR quality improvements
 Version 1.5

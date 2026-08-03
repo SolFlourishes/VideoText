@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.4.0
+
+### Added
+
+- Engine-neutral OCR contract and PaddleOCR adapter
+- Deterministic OCR engine registration and discovery with Paddle as the only
+  built-in default
+- Shared OCR contract for preprocessing experiments and benchmarks
+- VideoText Windows application icon
+
+### Notes
+
+- Version 1.4 does not add user-facing engine selection or a second OCR engine.
+- The manual Paddle probe remains a developer diagnostic for raw PaddleOCR
+  responses. Engine comparison work is planned for Version 1.5.
+
 ## 1.3.0
 
 ### Added
