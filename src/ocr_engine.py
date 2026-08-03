@@ -1,11 +1,12 @@
 """Engine-neutral OCR contract and the current PaddleOCR implementation."""
 
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol, runtime_checkable
 
 from config import OCR_LANGUAGE
 from models import OCRResult
 
 
+@runtime_checkable
 class OCREngine(Protocol):
     """Recognize text regions in one image using canonical OCR results."""
 
@@ -74,6 +75,49 @@ class PaddleOCREngine:
         return parsed_results
 
 
+def discover_ocr_engines() -> dict[str, type[OCREngine]]:
+    """Discover available adapter classes without creating OCR instances.
+
+    Version 1.4 intentionally exposes only the built-in Paddle adapter. Future
+    plugin sources can extend this discovery boundary without changing engine
+    selection or production singleton behavior.
+    """
+
+    return {"paddle": PaddleOCREngine}
+
+
+DEFAULT_OCR_ENGINE_NAME = "paddle"
+# Copy discovery output so callers can never mutate the private registry.
+_ENGINE_FACTORIES: dict[str, Callable[[], OCREngine]] = dict(
+    discover_ocr_engines()
+)
+
+
+def get_registered_ocr_engines() -> tuple[str, ...]:
+    """Return registered engine names in deterministic, immutable order."""
+
+    return tuple(sorted(_ENGINE_FACTORIES))
+
+
+def get_default_ocr_engine_name() -> str:
+    """Return the stable name used by normal production OCR processing."""
+
+    return DEFAULT_OCR_ENGINE_NAME
+
+
+def create_ocr_engine(name: str) -> OCREngine:
+    """Create an uninitialized OCR adapter for one registered engine name."""
+
+    try:
+        factory = _ENGINE_FACTORIES[name]
+    except KeyError as error:
+        available = ", ".join(get_registered_ocr_engines())
+        raise ValueError(
+            f"Unknown OCR engine: {name}. Available engines: {available}."
+        ) from error
+    return factory()
+
+
 # Process-lifetime singleton retained for current model-loading performance.
 _ocr_engine: PaddleOCREngine | None = None
 
@@ -84,7 +128,8 @@ def get_ocr_engine() -> PaddleOCREngine:
     global _ocr_engine
 
     if _ocr_engine is None:
-        _ocr_engine = PaddleOCREngine()
+        _ocr_engine = create_ocr_engine(get_default_ocr_engine_name())
+        assert isinstance(_ocr_engine, PaddleOCREngine)
         # Preserve existing behavior: the first factory call loads the model
         # before the caller begins its frame-processing console output.
         _ocr_engine.initialize()

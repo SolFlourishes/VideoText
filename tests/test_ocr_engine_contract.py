@@ -52,6 +52,46 @@ class OCREngineContractTests(unittest.TestCase):
         self.addCleanup(self.paddle_loader.stop)
         self.addCleanup(setattr, ocr_engine, "_ocr_engine", None)
 
+    def test_paddle_is_the_deterministic_default_registered_engine(self):
+        names = ocr_engine.get_registered_ocr_engines()
+
+        self.assertEqual(names, ("paddle",))
+        self.assertEqual(ocr_engine.get_default_ocr_engine_name(), "paddle")
+        self.assertIsInstance(names, tuple)
+        self.assertEqual(names + ("other",), ("paddle", "other"))
+        self.assertEqual(ocr_engine.get_registered_ocr_engines(), ("paddle",))
+
+    def test_discovery_returns_paddle_deterministically_without_initializing_it(self):
+        first = ocr_engine.discover_ocr_engines()
+        second = ocr_engine.discover_ocr_engines()
+
+        self.assertEqual(first, {"paddle": ocr_engine.PaddleOCREngine})
+        self.assertEqual(second, first)
+        self.assertIsNot(first, second)
+        self.assertEqual(FakePaddleOCR.instances, [])
+
+    def test_registry_is_seeded_from_discovery_and_isolated_from_returned_mapping(self):
+        discovered = ocr_engine.discover_ocr_engines()
+        self.assertEqual(ocr_engine._ENGINE_FACTORIES, discovered)
+        discovered.pop("paddle")
+
+        self.assertEqual(ocr_engine.get_registered_ocr_engines(), ("paddle",))
+        self.assertIsInstance(ocr_engine.create_ocr_engine("paddle"), ocr_engine.PaddleOCREngine)
+
+    def test_create_paddle_returns_an_uninitialized_engine_contract(self):
+        adapter = ocr_engine.create_ocr_engine("paddle")
+
+        self.assertIsInstance(adapter, ocr_engine.OCREngine)
+        self.assertIsInstance(adapter, ocr_engine.PaddleOCREngine)
+        self.assertEqual(FakePaddleOCR.instances, [])
+
+    def test_unknown_engine_names_fail_with_available_names(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            r"Unknown OCR engine: unknown\. Available engines: paddle\.",
+        ):
+            ocr_engine.create_ocr_engine("unknown")
+
     def test_paddle_response_parsing_preserves_order_confidence_and_boxes(self):
         first_box = np.array([1, 2, 30, 40])
         second_box = np.array([50, 3, 80, 42])
@@ -94,6 +134,13 @@ class OCREngineContractTests(unittest.TestCase):
         second = ocr_engine.get_ocr_engine()
 
         self.assertIs(first, second)
+        self.assertEqual(len(FakePaddleOCR.instances), 1)
+
+    def test_explicit_registry_instances_do_not_replace_the_production_singleton(self):
+        explicit = ocr_engine.create_ocr_engine("paddle")
+        production = ocr_engine.get_ocr_engine()
+
+        self.assertIsNot(explicit, production)
         self.assertEqual(len(FakePaddleOCR.instances), 1)
 
     def test_predict_compatibility_returns_the_unparsed_paddle_response(self):
