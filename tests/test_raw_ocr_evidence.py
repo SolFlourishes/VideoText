@@ -34,15 +34,11 @@ def region(text: str, confidence: float, left: int) -> OCRResult:
 
 
 class FakeOCREngine:
-    def predict(self, _image):
-        return [{
-            "rec_texts": ["high", "low"],
-            "rec_scores": [0.95, 0.59],
-            "rec_boxes": [
-                np.array([0, 0, 20, 10]),
-                np.array([25, 0, 45, 10]),
-            ],
-        }]
+    def recognize(self, _image):
+        return [
+            OCRResult("high", 0.95, np.array([0, 0, 20, 10])),
+            OCRResult("low", 0.59, np.array([25, 0, 45, 10])),
+        ]
 
 
 class RawOCREvidenceTests(unittest.TestCase):

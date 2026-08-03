@@ -1,81 +1,68 @@
-"""
-ocr_engine.py
+"""Engine-neutral OCR contract and the current PaddleOCR implementation."""
 
-Runs OCR on candidate frames using PaddleOCR.
-"""
-
-from paddleocr import PaddleOCR
+from typing import Any, Protocol
 
 from config import OCR_LANGUAGE
 from models import OCRResult
 
-# Singleton OCR engine
-_ocr_engine = None
+
+class OCREngine(Protocol):
+    """Recognize text regions in one image using canonical OCR results."""
+
+    def recognize(self, image: Any) -> list[OCRResult]:
+        """Return recognized regions in the engine's original response order."""
 
 
-def get_ocr_engine():
-    """
-    Create the OCR engine on first use.
+def _load_paddle_ocr_class():
+    """Import PaddleOCR only when the Paddle adapter first needs its model."""
 
-    Returns:
-        PaddleOCR
-    """
-    global _ocr_engine
+    from paddleocr import PaddleOCR
 
-    if _ocr_engine is None:
-
-        print("\nLoading PaddleOCR model...\n")
-
-        _ocr_engine = PaddleOCR(
-            use_textline_orientation=True,
-            lang=OCR_LANGUAGE,
-        )
-
-        print("PaddleOCR model loaded successfully.\n")
-
-    return _ocr_engine
+    return PaddleOCR
 
 
-def perform_ocr(candidate_frames, progress_callback=None):
-    """
-    Perform OCR on all candidate frames.
+class PaddleOCREngine:
+    """Adapt PaddleOCR predictions to VideoText's canonical OCRResult model."""
 
-    Args:
-        candidate_frames: List[CandidateFrame]
+    def __init__(self) -> None:
+        self._paddle_ocr = None
 
-    Returns:
-        The same list of CandidateFrame objects populated with OCR results.
-    """
+    def _model(self):
+        """Create and retain the Paddle model only on first recognition use."""
 
-    ocr = get_ocr_engine()
+        if self._paddle_ocr is None:
+            print("\nLoading PaddleOCR model...\n")
+            paddle_ocr_class = _load_paddle_ocr_class()
+            self._paddle_ocr = paddle_ocr_class(
+                use_textline_orientation=True,
+                lang=OCR_LANGUAGE,
+            )
+            print("PaddleOCR model loaded successfully.\n")
+        return self._paddle_ocr
 
-    print("Running OCR...\n")
+    def initialize(self) -> None:
+        """Initialize the Paddle model while preserving factory compatibility."""
 
-    for index, frame in enumerate(candidate_frames, start=1):
+        self._model()
 
-        print(
-            f"[{index}/{len(candidate_frames)}] "
-            f"Frame {frame.frame_number}"
-        )
+    def predict(self, image: Any):
+        """Return Paddle's unparsed response for temporary legacy callers."""
 
-        # Run OCR
-        result = ocr.predict(frame.image)
+        return self._model().predict(image)
 
-        # Build two independent containers around the same parsed OCRResult
-        # objects.  Reading order may later replace only ``ocr_results`` with
-        # its confidence-filtered working collection.
-        parsed_results = []
+    def recognize(self, image: Any) -> list[OCRResult]:
+        """Invoke PaddleOCR and preserve its regions without normalization."""
+
+        result = self.predict(image)
+        parsed_results: list[OCRResult] = []
 
         if result:
-
             page = result[0]
-
             texts = page.get("rec_texts", [])
             scores = page.get("rec_scores", [])
             boxes = page.get("rec_boxes", [])
 
             for text, score, box in zip(texts, scores, boxes):
-                
                 parsed_results.append(
                     OCRResult(
                         text=text,
@@ -84,15 +71,50 @@ def perform_ocr(candidate_frames, progress_callback=None):
                     )
                 )
 
+        return parsed_results
+
+
+# Process-lifetime singleton retained for current model-loading performance.
+_ocr_engine: PaddleOCREngine | None = None
+
+
+def get_ocr_engine() -> PaddleOCREngine:
+    """Return the lazily created, process-lifetime Paddle OCR adapter."""
+
+    global _ocr_engine
+
+    if _ocr_engine is None:
+        _ocr_engine = PaddleOCREngine()
+        # Preserve existing behavior: the first factory call loads the model
+        # before the caller begins its frame-processing console output.
+        _ocr_engine.initialize()
+
+    return _ocr_engine
+
+
+def perform_ocr(candidate_frames, progress_callback=None):
+    """Populate candidate frames through the engine-neutral recognition contract."""
+
+    ocr: OCREngine = get_ocr_engine()
+
+    print("Running OCR...\n")
+
+    for index, frame in enumerate(candidate_frames, start=1):
+        print(
+            f"[{index}/{len(candidate_frames)}] "
+            f"Frame {frame.frame_number}"
+        )
+
+        # Keep separate containers around the same canonical region objects.
+        # Reading order may later replace only the working collection.
+        parsed_results = ocr.recognize(frame.image)
         frame.raw_ocr_results = list(parsed_results)
         frame.ocr_results = list(parsed_results)
 
         print(f"    Found {len(frame.ocr_results)} text regions.")
 
         if frame.ocr_results:
-
             for number, ocr_result in enumerate(frame.ocr_results, start=1):
-
                 print(
                     f"      {number}. "
                     f"{ocr_result.text} "
