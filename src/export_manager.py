@@ -9,7 +9,11 @@ from pathlib import Path
 from csv_exporter import export_csv
 from excel_exporter import export_excel
 from markdown_exporter import export_markdown
-from models import Presentation
+from models import CandidateFrame, Presentation
+from ocr_confidence_stats import (
+    DocumentOCRConfidenceStats,
+    calculate_document_ocr_confidence_stats,
+)
 
 
 EXPORTERS = {
@@ -25,6 +29,7 @@ def export_all(
     formats: list[str],
     output_stem: str,
     progress_callback=None,
+    candidate_frames: list[CandidateFrame] | None = None,
 ) -> dict[str, str]:
     """
     Export a presentation in each requested format.
@@ -33,6 +38,13 @@ def export_all(
     output_directory.mkdir(parents=True, exist_ok=True)
 
     saved_paths: dict[str, str] = {}
+    # Calculate once from preserved evidence for every requested export.  The
+    # result remains transient and is never stored on Presentation.
+    ocr_confidence_statistics: DocumentOCRConfidenceStats | None = (
+        calculate_document_ocr_confidence_stats(candidate_frames)
+        if candidate_frames is not None
+        else None
+    )
 
     for index, format_name in enumerate(formats, start=1):
         if format_name not in EXPORTERS:
@@ -42,10 +54,17 @@ def export_all(
         output_path = output_directory / f"{output_stem}{extension}"
 
         try:
-            saved_paths[format_name] = exporter(
-                presentation,
-                output_path.as_posix(),
-            )
+            if format_name == "csv":
+                saved_paths[format_name] = exporter(
+                    presentation,
+                    output_path.as_posix(),
+                    ocr_confidence_statistics,
+                )
+            else:
+                saved_paths[format_name] = exporter(
+                    presentation,
+                    output_path.as_posix(),
+                )
         except PermissionError as error:
             format_label = format_name.upper()
             raise PermissionError(

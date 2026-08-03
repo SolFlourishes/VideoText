@@ -486,6 +486,7 @@ def _finish_run(
             current,
             total,
         ),
+        candidate_frames=candidate_frames,
     )
 
     reporter.complete()
