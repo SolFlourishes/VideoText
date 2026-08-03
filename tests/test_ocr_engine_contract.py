@@ -117,6 +117,10 @@ class OCREngineContractTests(unittest.TestCase):
         FakePaddleOCR.prediction = [{}]
         self.assertEqual(adapter.recognize(np.zeros((1, 1, 3))), [])
 
+    def test_adapter_exposes_only_the_engine_neutral_recognize_contract(self):
+        self.assertTrue(hasattr(ocr_engine.PaddleOCREngine(), "recognize"))
+        self.assertFalse(hasattr(ocr_engine.PaddleOCREngine(), "predict"))
+
     def test_adapter_initialization_is_lazy_and_uses_current_paddle_settings(self):
         adapter = ocr_engine.PaddleOCREngine()
         self.assertEqual(FakePaddleOCR.instances, [])
@@ -142,12 +146,6 @@ class OCREngineContractTests(unittest.TestCase):
 
         self.assertIsNot(explicit, production)
         self.assertEqual(len(FakePaddleOCR.instances), 1)
-
-    def test_predict_compatibility_returns_the_unparsed_paddle_response(self):
-        prediction = [{"rec_texts": ["legacy"]}]
-        FakePaddleOCR.prediction = prediction
-
-        self.assertIs(ocr_engine.get_ocr_engine().predict(np.zeros((1, 1, 3))), prediction)
 
     def test_perform_ocr_uses_recognize_and_preserves_raw_working_references(self):
         source = frame()

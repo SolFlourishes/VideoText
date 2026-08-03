@@ -42,19 +42,14 @@ class PaddleOCREngine:
         return self._paddle_ocr
 
     def initialize(self) -> None:
-        """Initialize the Paddle model while preserving factory compatibility."""
+        """Initialize the Paddle model for the production singleton."""
 
         self._model()
-
-    def predict(self, image: Any):
-        """Return Paddle's unparsed response for temporary legacy callers."""
-
-        return self._model().predict(image)
 
     def recognize(self, image: Any) -> list[OCRResult]:
         """Invoke PaddleOCR and preserve its regions without normalization."""
 
-        result = self.predict(image)
+        result = self._model().predict(image)
         parsed_results: list[OCRResult] = []
 
         if result:

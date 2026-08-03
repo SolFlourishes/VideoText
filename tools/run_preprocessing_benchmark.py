@@ -4,7 +4,6 @@ import argparse, sys
 from pathlib import Path
 import cv2
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from models import OCRResult
 from ocr_preprocessing import list_preprocessing_variants
 from ocr_preprocessing_experiment import OCRPreprocessingExperimentOptions, run_preprocessing_experiment, write_preprocessing_experiment_report
 from preprocessing_benchmark import load_manifest, write_benchmark_summary
@@ -17,14 +16,11 @@ def main(argv=None):
     manifest=load_manifest(args.manifest)
     from ocr_engine import get_ocr_engine
     engine=get_ocr_engine()
-    def ocr(image):
-        prediction=engine.predict(image); page=prediction[0] if prediction else {}
-        return [OCRResult(text, float(score), box) for text,score,box in zip(page.get("rec_texts",[]),page.get("rec_scores",[]),page.get("rec_boxes",[]))]
     results=[]
     for frame in manifest["frames"]:
         image=cv2.imread(str(frame["image_path"]))
         if image is None: raise RuntimeError(f"Could not read benchmark image: {frame['image_path']}")
-        results.append(run_preprocessing_experiment(image,ocr,OCRPreprocessingExperimentOptions(tuple(list_preprocessing_variants()),frame["reference_text"],True),image_name=frame["frame_id"]))
+        results.append(run_preprocessing_experiment(image,engine.recognize,OCRPreprocessingExperimentOptions(tuple(list_preprocessing_variants()),frame["reference_text"],True),image_name=frame["frame_id"]))
     output=write_preprocessing_experiment_report(results,args.output_directory,source_inputs=[str(frame["image_path"]) for frame in manifest["frames"]],ocr_configuration={"language":"production default","device":"production default"})
     write_benchmark_summary(output/"experiment.json",output)
     print(f"Benchmark reports written to: {output}")

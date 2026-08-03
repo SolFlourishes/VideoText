@@ -17,7 +17,6 @@ import cv2
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from models import OCRResult
 from ocr_preprocessing import list_preprocessing_variants
 from ocr_preprocessing_experiment import (
     OCRPreprocessingExperimentOptions,
@@ -87,11 +86,6 @@ def main(argv: list[str] | None = None) -> int:
     from ocr_engine import get_ocr_engine
     engine = get_ocr_engine()
 
-    def production_ocr(image):
-        prediction = engine.predict(image)
-        page = prediction[0] if prediction else {}
-        return [OCRResult(text=text, confidence=float(score), bounding_box=box) for text, score, box in zip(page.get("rec_texts", []), page.get("rec_scores", []), page.get("rec_boxes", []))]
-
     experiments = []
     for image_path in images:
         image = cv2.imread(str(image_path))
@@ -104,7 +98,14 @@ def main(argv: list[str] | None = None) -> int:
         # Task 32B stores every diagnostic image as ``original.png``. Keep its
         # frame directory identifier in reports so measurements remain traceable.
         image_name = image_path.parent.name if image_path.name == "original.png" and image_path.parent.name.startswith("frame_") else image_path.name
-        experiments.append(run_preprocessing_experiment(image, production_ocr, options, image_name=image_name))
+        experiments.append(
+            run_preprocessing_experiment(
+                image,
+                engine.recognize,
+                options,
+                image_name=image_name,
+            )
+        )
     destination = write_preprocessing_experiment_report(experiments, arguments.output_directory, source_inputs=[str(path) for path in images], ocr_configuration={"language": arguments.ocr_language or "production default", "device": arguments.device or "production default"})
     print(f"Experiment reports written to: {destination}")
     return 0
