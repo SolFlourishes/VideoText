@@ -143,6 +143,7 @@ existing axis-aligned canonical model.
 
 ## Next Step
 
-Task 37C should validate this isolated adapter against the canonical contract
-with a pinned RapidOCR version and controlled sample frames. It must not
-register RapidOCR or change the production default.
+Task 37C certified the isolated adapter contract. Task 37D then validated the
+pinned development runtime on two smoke frames; see
+[RapidOCR Controlled Runtime Validation](rapidocr-runtime-validation.md).
+RapidOCR remains unregistered and must not change the production default.

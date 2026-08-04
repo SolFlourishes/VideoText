@@ -1,0 +1,4 @@
+# Development-only RapidOCR evaluation dependencies.
+# These are deliberately excluded from production and packaging requirements.
+rapidocr==3.9.1
+onnxruntime==1.27.0

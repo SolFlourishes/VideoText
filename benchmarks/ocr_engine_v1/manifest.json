@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "corpus_name": "VideoText OCR Engine Benchmark v1",
+  "source_video": "sample_videos/packaged_ocr_smoke.avi",
+  "frames": [
+    {
+      "frame_id": "smoke_title_000000",
+      "image": "frames/frame_000000_0.00s.png",
+      "selection_reason": "Title slide establishes baseline recognition of mixed branding and title text.",
+      "layout_categories": ["title"],
+      "reference_text": "Slide 1\nVideoText Packaged OCR Smoke Test"
+    },
+    {
+      "frame_id": "smoke_bullet_000025",
+      "image": "frames/frame_000025_5.00s.png",
+      "selection_reason": "Numbered item with a separate body line exercises ordinary bullet/body layout.",
+      "layout_categories": ["standard bullets"],
+      "reference_text": "Slide 2\n1. Review the selected video\nUse stable frames for OCR"
+    },
+    {
+      "frame_id": "smoke_progressive_000050",
+      "image": "frames/frame_000050_10.00s.png",
+      "selection_reason": "Multi-line numbered content exercises dense multi-line text and continuation layout.",
+      "layout_categories": ["dense text", "small text"],
+      "reference_text": "Slide 3\n2. Preserve progressive paragraph\nFirst continuation line\nSecond continuation line"
+    },
+    {
+      "frame_id": "smoke_compact_000071",
+      "image": "frames/frame_000071_14.20s.png",
+      "selection_reason": "Compact final slide provides small adjacent labels and end-of-video content.",
+      "layout_categories": ["small text"],
+      "reference_text": "Slide 4\n3. Export Markdown CSV Excel"
+    }
+  ]
+}
