@@ -72,9 +72,12 @@ class RapidOCREngine:
         if output is None:
             return []
 
-        boxes = output.boxes
-        texts = output.txts
-        scores = output.scores
+        # RapidOCR represents a valid no-detection page with ``None`` fields.
+        # Normalize that documented empty response to empty canonical evidence;
+        # a partially populated response still fails the consistency check below.
+        boxes = () if output.boxes is None else output.boxes
+        texts = () if output.txts is None else output.txts
+        scores = () if output.scores is None else output.scores
         if not (len(boxes) == len(texts) == len(scores)):
             raise ValueError(
                 "RapidOCR returned inconsistent box, text, and score counts."

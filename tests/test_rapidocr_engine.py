@@ -94,6 +94,8 @@ class RapidOCREngineTests(unittest.TestCase):
         self.assertEqual(adapter.recognize(np.zeros((1, 1, 3))), [])
         FakeRapidOCR.output = FakeRapidOCROutput()
         self.assertEqual(adapter.recognize(np.zeros((1, 1, 3))), [])
+        FakeRapidOCR.output = FakeRapidOCROutput(boxes=None, txts=None, scores=None)
+        self.assertEqual(adapter.recognize(np.zeros((1, 1, 3))), [])
 
     def test_inconsistent_result_collections_fail_without_dropping_regions(self):
         FakeRapidOCR.output = FakeRapidOCROutput(
