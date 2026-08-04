@@ -60,6 +60,11 @@ class RapidOCREngine:
             self._rapid_ocr = _load_rapid_ocr_class()()
         return self._rapid_ocr
 
+    def initialize(self) -> None:
+        """Initialize the evaluation adapter without recognizing a frame."""
+
+        self._model()
+
     def recognize(self, image: Any) -> list[OCRResult]:
         """Recognize one image without changing RapidOCR result ordering."""
 
