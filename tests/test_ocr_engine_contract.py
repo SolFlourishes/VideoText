@@ -13,6 +13,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 import ocr_engine
 from config import OCR_LANGUAGE
 from models import CandidateFrame, OCRResult
+from ocr_adapter_certification import (
+    assert_canonical_results,
+    assert_equivalent_results,
+)
 
 
 class FakePaddleOCR:
@@ -108,6 +112,7 @@ class OCREngineContractTests(unittest.TestCase):
         self.assertEqual([region.confidence for region in regions], [0.6000001, 0.9876543])
         self.assertIs(regions[0].bounding_box, first_box)
         self.assertIs(regions[1].bounding_box, second_box)
+        assert_canonical_results(self, regions)
 
     def test_empty_prediction_and_empty_page_return_no_regions(self):
         adapter = ocr_engine.PaddleOCREngine()
@@ -116,6 +121,32 @@ class OCREngineContractTests(unittest.TestCase):
         self.assertEqual(adapter.recognize(np.zeros((1, 1, 3))), [])
         FakePaddleOCR.prediction = [{}]
         self.assertEqual(adapter.recognize(np.zeros((1, 1, 3))), [])
+
+    def test_malformed_paddle_output_is_rejected_without_dropping_regions(self):
+        adapter = ocr_engine.PaddleOCREngine()
+        FakePaddleOCR.prediction = [{
+            "rec_texts": ["one", "two"],
+            "rec_scores": [0.9],
+            "rec_boxes": [np.array([0, 0, 1, 1])],
+        }]
+        with self.assertRaisesRegex(ValueError, "inconsistent"):
+            adapter.recognize(np.zeros((1, 1, 3)))
+
+        FakePaddleOCR.prediction = [{
+            "rec_texts": ["one"],
+            "rec_scores": [float("nan")],
+            "rec_boxes": [np.array([0, 0, 1, 1])],
+        }]
+        with self.assertRaisesRegex(ValueError, "non-finite"):
+            adapter.recognize(np.zeros((1, 1, 3)))
+
+        FakePaddleOCR.prediction = [{
+            "rec_texts": ["one"],
+            "rec_scores": [0.9],
+            "rec_boxes": [np.array([2, 0, 1, 1])],
+        }]
+        with self.assertRaisesRegex(ValueError, "invalid canonical"):
+            adapter.recognize(np.zeros((1, 1, 3)))
 
     def test_adapter_exposes_only_the_engine_neutral_recognize_contract(self):
         self.assertTrue(hasattr(ocr_engine.PaddleOCREngine(), "recognize"))
@@ -132,6 +163,26 @@ class OCREngineContractTests(unittest.TestCase):
             "use_textline_orientation": True,
             "lang": OCR_LANGUAGE,
         })
+
+    def test_repeated_calls_are_deterministic_independent_and_do_not_mutate_image(self):
+        image = np.zeros((2, 2, 3), dtype=np.uint8)
+        original = image.copy()
+        FakePaddleOCR.prediction = [{
+            "rec_texts": ["same"],
+            "rec_scores": [0.75],
+            "rec_boxes": [np.array([0, 0, 1, 1])],
+        }]
+        adapter = ocr_engine.PaddleOCREngine()
+
+        first = adapter.recognize(image)
+        second = adapter.recognize(image)
+
+        self.assertIsNot(first, second)
+        self.assertIsNot(first[0], second[0])
+        assert_equivalent_results(self, first, second)
+        np.testing.assert_array_equal(image, original)
+        self.assertEqual(len(FakePaddleOCR.instances), 1)
+        assert_canonical_results(self, first)
 
     def test_factory_initializes_once_and_reuses_the_process_singleton(self):
         first = ocr_engine.get_ocr_engine()

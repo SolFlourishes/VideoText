@@ -1,320 +1,303 @@
-VideoText Roadmap
+# VideoText Roadmap
 
-Project: VideoText
+**Project:** VideoText
 
-Purpose: Transform video-based instructional content into accurate, accessible, and human-verifiable documents.
+**Current Release:** Version 1.4.0
 
-Vision
+**Mission**
 
-VideoText began as a tool for extracting text from presentation videos. It has evolved into a platform for converting visual instructional content into structured, reusable, and accessible documents.
+VideoText transforms visual instructional content into accurate, accessible, and human-verifiable documents that support translation, accessibility, preservation, and reuse while preserving the integrity of the original content.
 
-The long-term goal is to enable organizations to preserve, translate, and remediate instructional content while keeping humans in control of the final output.
+---
 
-VideoText is built as a modular processing pipeline. Each stage produces deterministic evidence that becomes the input to the next stage. Downstream stages enrich prior results without modifying preserved source evidence.
+# Vision
 
-VideoText is guided by four principles:
+VideoText began as a tool for extracting text from presentation videos. It has evolved into a modular platform for transforming visual instructional content into structured, reusable, and accessible documents.
 
-Accuracy over automation
-Never invent or rewrite content.
-Preserve the original meaning.
-Human-in-the-loop
-AI assists.
-Humans approve.
-Accessibility by design
-Outputs should support accessibility rather than simply reproducing appearance.
-Deterministic processing
-Improvements should be measurable and benchmarked.
-Avoid generative "magic fixes."
-Current Release
-Version 1.4.0
+The processing pipeline is intentionally deterministic.
 
-Status: Current Release
+Each stage produces evidence for the next stage while preserving prior evidence. Downstream stages enrich information without modifying the original source evidence.
 
-Completed
-OCR Quality Intelligence
-Preserve raw OCR evidence
-OCR confidence preservation
-Frame-level confidence statistics
-Document-level confidence statistics
-OCR Quality summary dialog
-Confidence-aware CSV export
-Backward-compatible replay support
-OCR Processing
-Geometry-based reading order
-Paragraph reconstruction
-Duplicate suppression
-Boundary stitching
-Improved sentence reconstruction
-Export
-CSV
-Markdown
-Excel
-Confidence-aware CSV fields
-Translation Workflow
+---
 
-Five-column protected workbook:
+# Guiding Principles
 
-Slide
-Original Text
-Initial AI Translation (placeholder)
-Modified Translation
-Verified
+1. Accuracy over automation
+   - Never invent or rewrite content.
+   - Preserve original meaning.
 
-Features:
+2. Human-in-the-loop
+   - AI assists.
+   - Humans approve.
 
-Locked source columns
-Editable translation columns
-Worksheet protection
-Translation guidance
-Human verification workflow
-Diagnostics
-OCR benchmarking framework
-CER/WER evaluation
-OCR diagnostics
-OCR confidence statistics
-Version 1.4 — Completed
-Theme
+3. Accessibility by design
+   - Outputs support accessibility rather than reproducing appearance.
 
-OCR Engine Framework
+4. Deterministic processing
+   - Improvements are measurable.
+   - Behavior is benchmarkable.
+   - Avoid generative "magic fixes."
 
-Release Goal
+---
 
-Decouple OCR from the VideoText processing pipeline so any compliant OCR engine can be substituted without changing downstream processing.
+# Current Capabilities (Version 1.4)
 
-Completed Features
-OCR engine interface and shared OCR result contract
-PaddleOCR adapter (the only built-in default implementation)
-Deterministic engine registration and discovery
-Replay compatibility and OCR confidence preservation
-Preprocessing experiments and benchmarks using the shared OCR contract
+## OCR
 
-Version 1.4 deliberately does not provide GUI or command-line engine
-selection. The manual Paddle probe remains a raw-response diagnostic exception.
-Out of Scope
-Additional OCR engines
-GUI or command-line engine selection
-External plugin loading
-OCR engine comparison
-CER/WER benchmarking changes
-Evaluation reports
-OCR quality improvements
-Version 1.5
-Theme
+- Geometry-aware reading order
+- Paragraph reconstruction
+- Duplicate suppression
+- Boundary stitching
+- OCR confidence preservation
+- Raw OCR evidence preservation
+- OCR quality statistics
+
+## OCR Architecture
+
+- Engine abstraction
+- PaddleOCR adapter
+- Engine registration
+- Engine discovery
+- Shared OCR contract
+- Replay compatibility
+
+## Export
+
+- Markdown
+- CSV
+- Excel Translation Workbook
+
+## Diagnostics
+
+- OCR diagnostics
+- CER/WER benchmarking
+- Confidence statistics
+- OCR preprocessing experiments
+
+---
+
+# Upcoming Releases
+
+# Version 1.5
+
+## Theme
 
 OCR Engine Evaluation
 
-Release Goal
+### Release Goal
 
-Evaluate and compare OCR engines using the common framework established in Version 1.4.
+Evaluate multiple OCR engines using the framework established in Version 1.4.
 
-Planned Features
-Additional OCR engine adapters
-Side-by-side engine comparison
-CER benchmarking
-WER benchmarking
-Benchmark datasets
-Engine evaluation reports
-Performance comparisons
-Accuracy summaries
-Out of Scope
-New OCR reconstruction algorithms
-AI-assisted OCR correction
-Automatic engine selection
-Cloud OCR services
-Version 1.6
-Theme
+### Planned Features
+
+- Additional OCR engine adapters
+- Side-by-side engine comparison
+- CER benchmarking
+- WER benchmarking
+- Performance benchmarking
+- Accuracy summaries
+- Engine evaluation reports
+
+### Out of Scope
+
+- OCR correction
+- GUI engine selection
+- Automatic engine selection
+- Cloud OCR
+
+---
+
+# Version 1.6
+
+## Theme
 
 Translation Foundation
 
-Release Goal
+### Release Goal
 
-Add translation as a downstream transformation while preserving original OCR evidence.
+Add AI translation as a downstream transformation while preserving original OCR evidence.
 
-Planned Features
-Translation service interface
-Source and target language selection
-Preserve original extracted text
-Store translated text separately
-Deterministic translation pipeline
-Clear provenance between OCR and translation
-No automatic replacement of OCR output
-Initial provider or local model integration
-Translation in CSV, Excel, and Markdown
-Basic GUI controls
-Out of Scope
-Translation quality scoring
-Multiple providers
-Translation memory
-Glossaries
-Automatic translation approval
-Version 1.7
-Theme
+### Planned Features
 
-Translation Quality and Workflow
+- Translation abstraction
+- Translation provider interface
+- Source and target language selection
+- Translation stored separately from OCR
+- Translation provenance
+- Initial provider/local model
+- Translation export
+- Basic GUI controls
 
-Release Goal
+---
 
-Expand translation into a complete human-review workflow.
+# Version 1.7
 
-Planned Features
-Multiple translation providers
-Side-by-side original and translated text
-Batch translation
-Glossaries
-Preferred terminology
-Re-translation
-Translation quality notes
-Cost controls for cloud providers
-Milestone
-Portable Deployment Experience
-Goal
+## Theme
 
-Deliver a polished, portable Windows application requiring no administrator privileges, no installation, and a guided first-run experience.
+Translation Workflow
 
-Planned Features
-Portable ZIP distribution
-No administrator rights required
-No registry modifications
-User-writable configuration
-User-writable output folders
-First-run setup wizard
-Verify OCR models
-Verify write permissions
-Create output folders
-Offer to open the User Guide
-Optional environment diagnostics
-Future update check
-Out of Scope
-MSI installer
-Inno Setup installer
-Program Files installation
-Registry integration
-Administrator privileges
-Version 2.0
-Theme
+### Planned Features
+
+- Multiple translation providers
+- Batch translation
+- Glossaries
+- Preferred terminology
+- Translation notes
+- Re-translation
+- Quality review workflow
+
+---
+
+### Version 1.8
+
+### Theme
+
+AI Assisted Understanding
+
+### Goal
+
+Augment OCR evidence using AI while preserving the deterministic OCR pipeline.
+
+### Features
+
+- Vision providers
+- Local vision models
+- Cloud vision models
+- Structured slide understanding
+- Diagram detection
+- Figure descriptions
+- Equation recognition
+- Accessibility annotations
+- Optional AI summaries
+
+### Out of Scope
+
+- Replacing OCR
+- Automatic rewriting
+- Mandatory cloud services
+
+---
+
+# Version 2.0
+
+## Theme
 
 Accessibility Edition
 
-Release Goal
+### Planned Features
 
-Transform verified instructional content into accessible documents.
+- Accessible Word export
+- Heading structure
+- Accessible tables
+- Lists
+- Logical reading order
+- Screen-reader optimization
+- WCAG / Section 508 / ADA support
 
-Planned Features
-Accessible Word Export
-Heading styles
-Paragraph styles
-Accessible tables
-Real lists
-Logical reading order
-Slide numbers
-Timestamps
-Source metadata
-Optional Table of Contents
-Screen-reader-friendly structure
+---
 
-Suitable for:
+# Version 2.1
 
-WCAG
-Section 508
-ADA
-DOJ Title II
-Version 2.1
-Theme
+## Theme
 
 Accessible Multimedia Transcript
 
-Release Goal
+### Planned Features
 
-Combine visual and spoken instructional content into a single accessible transcript.
+- Speech-to-text
+- Speaker identification
+- Slide timing
+- Visual notes
+- Combined accessible transcript
 
-Planned Features
-Verified OCR
-Speech-to-text
-Slide timing
-Speaker identification
-Visual notes
-Accessible transcript format
-Version 2.2
-Theme
+---
 
-Accessibility Review Workflow
+# Version 2.2
 
-Planned Features
-Accessibility review status
-Reviewer notes
-Missing caption detection
-Reading-order validation
-Low-confidence highlighting
-Version tracking
-Accessibility reports
-Version 3.x
-Theme
+## Theme
 
-Video Accessibility Platform
+Accessibility Workflow
 
-Planned Outputs
-Excel Translation Workbook
-Markdown
-CSV
-Accessible Word (.docx)
-Accessible PDF
-HTML
-EPUB
-Plain Text
-Caption files (SRT/VTT)
-Translation memory formats
-Accessibility compliance reports
-Future Milestone
-Developer Platform
-Goal
+### Planned Features
 
-Enable third parties to extend VideoText without modifying the core application.
+- Accessibility review
+- Reviewer notes
+- Version tracking
+- Reading-order validation
+- Accessibility reports
 
-Planned Extension Points
-OCR engines
-Translation providers
-Export formats
-Accessibility analyzers
-Custom processing workflows
-Guiding Philosophy
+---
 
-VideoText is not intended to replace translators, instructional designers, or accessibility specialists.
+# Future Milestones
 
-Instead, it prepares high-quality, structured content so that human experts can work more efficiently and with greater confidence.
+## Portable Deployment Experience
 
-Every major feature should answer one question:
+- Portable ZIP deployment
+- No administrator rights
+- No installer required
+- First-run experience
+- Environment validation
+- OCR model verification
+- Output-folder creation
+- Update notification
 
-Does this improve accuracy, accessibility, or human efficiency without reducing trust?
+---
 
-If the answer is no, the feature does not belong in VideoText.
+## GUI Workflow & Usability
 
-Design Principles
+- Graceful Stop Processing
+- Safe Exit During Processing
+- Processing state management
+- Improved progress reporting
+- Remember last settings
+- Keyboard shortcuts
+- Optional session recovery
 
-Every new feature should strive to be:
+---
 
-Deterministic
-Measurable
-Benchmarkable
-Human-verifiable
-Accessible
-Maintainable
-Modular
-Backward compatible whenever practical
-Success Metrics
+## Developer Platform
 
-Future improvements should be evaluated using objective measures whenever possible.
+- OCR plugins
+- Translation plugins
+- Export plugins
+- Accessibility plugins
+- Custom processing workflows
 
-Examples include:
+---
 
-Character Error Rate (CER)
-Word Error Rate (WER)
-OCR confidence
-Processing time
-Memory usage
-Translation efficiency
-Accessibility readiness
-Reviewer effort
-Reduction in manual editing
-Long-Term Mission
+# Long-Term Vision (3.x)
 
-VideoText transforms visual instructional content into accurate, accessible, and human-verifiable documents that support translation, accessibility, preservation, and reuse while preserving the integrity of the original content.
+VideoText becomes a complete accessibility and instructional-content transformation platform supporting:
+
+- OCR
+- Translation
+- Accessibility remediation
+- Accessible document generation
+- Multimedia transcripts
+- Multiple export formats
+- Compliance reporting
+
+---
+
+# Design Principles
+
+Every feature should be:
+
+- Deterministic
+- Measurable
+- Benchmarkable
+- Human-verifiable
+- Accessible
+- Modular
+- Maintainable
+- Backward compatible whenever practical
+
+---
+
+# Success Metric
+
+Every proposed feature should answer one question:
+
+> **Does this improve accuracy, accessibility, or human efficiency without reducing trust?**
+
+If the answer is **no**, it does not belong in VideoText.

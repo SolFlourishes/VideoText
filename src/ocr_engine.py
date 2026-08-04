@@ -2,6 +2,8 @@
 
 from typing import Any, Callable, Protocol, runtime_checkable
 
+import numpy as np
+
 from config import OCR_LANGUAGE
 from models import OCRResult
 
@@ -57,12 +59,30 @@ class PaddleOCREngine:
             texts = page.get("rec_texts", [])
             scores = page.get("rec_scores", [])
             boxes = page.get("rec_boxes", [])
+            if not (len(texts) == len(scores) == len(boxes)):
+                raise ValueError(
+                    "PaddleOCR returned inconsistent text, score, and box counts."
+                )
 
             for text, score, box in zip(texts, scores, boxes):
+                confidence = float(score)
+                if not np.isfinite(confidence):
+                    raise ValueError("PaddleOCR returned a non-finite confidence.")
+                coordinates = np.asarray(box)
+                if coordinates.shape != (4,):
+                    raise ValueError(
+                        "PaddleOCR returned a bounding box that is not "
+                        "[left, top, right, bottom]."
+                    )
+                left, top, right, bottom = coordinates
+                if left > right or top > bottom:
+                    raise ValueError(
+                        "PaddleOCR returned an invalid canonical bounding box."
+                    )
                 parsed_results.append(
                     OCRResult(
                         text=text,
-                        confidence=float(score),
+                        confidence=confidence,
                         bounding_box=box,
                     )
                 )
