@@ -147,3 +147,7 @@ Task 37C certified the isolated adapter contract. Task 37D then validated the
 pinned development runtime on two smoke frames; see
 [RapidOCR Controlled Runtime Validation](rapidocr-runtime-validation.md).
 RapidOCR remains unregistered and must not change the production default.
+
+The resulting accuracy, performance, memory, size, offline-equivalent, and
+licensing findings are consolidated in the authoritative
+[OCR Engine Evaluation Report v1](ocr-engine-evaluation-report-v1.md).

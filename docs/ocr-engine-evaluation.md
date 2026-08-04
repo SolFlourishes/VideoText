@@ -63,6 +63,14 @@ performance, accuracy, or offline suitability.
   pending licensing, dependency, packaging, performance, and accuracy
   evaluation. It remains unregistered and unavailable to normal users.
 
+## First formal comparison
+
+The initial RapidOCR/PaddleOCR comparison is recorded in the authoritative
+[OCR Engine Evaluation Report v1](ocr-engine-evaluation-report-v1.md). It uses
+four human-verified saved frames and five isolated performance repetitions per
+engine. Paddle remains the production default; RapidOCR remains evaluation-only
+pending broader accuracy, model-license, offline, and packaging evidence.
+
 ## Candidate Scope
 
 ### Primary candidates

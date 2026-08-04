@@ -98,6 +98,14 @@ Evaluate multiple OCR engines using the framework established in Version 1.4.
 - Accuracy summaries
 - Engine evaluation reports
 
+### Evaluation status
+
+- PaddleOCR and RapidOCR now have isolated adapter, accuracy, and performance
+  evidence; see [OCR Engine Evaluation Report v1](ocr-engine-evaluation-report-v1.md).
+- Paddle remains the only production/default engine. Broader corpus coverage,
+  RapidOCR model-license verification, physical offline validation, and an
+  isolated packaging proof are required before any user-facing selection.
+
 ### Out of Scope
 
 - OCR correction
