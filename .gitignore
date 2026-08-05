@@ -13,6 +13,7 @@ venv/
 
 # Output
 output/
+benchmarks/ocr_engine_v2/*.json.bak-*
 paragraph_reconstruction_debug.txt
 
 # PyInstaller generated build output

@@ -1,11 +1,11 @@
 # Changelog
 
-## Unreleased — Version 1.5 evaluation work
+## 1.5.0
 
 ### Added
 
-- Isolated RapidOCR feasibility, accuracy, and performance evaluation evidence
-- Versioned four-frame OCR-engine benchmark corpus and reproducible reports
+- Isolated RapidOCR feasibility, accuracy, performance, and confidence evidence
+- Versioned human-verified nine-frame OCR-engine benchmark corpus and reproducible reports
 - Formal [OCR Engine Evaluation Report v1](ocr-engine-evaluation-report-v1.md)
 
 ### Notes
@@ -13,6 +13,10 @@
 - PaddleOCR remains the only production/default engine.
 - RapidOCR remains evaluation-only pending broader accuracy, physical offline,
   PyInstaller, and model-license validation.
+- The verified v2 corpus now provides the authoritative Version 1.5 accuracy
+  baseline: PaddleOCR remains the default after lower reconstructed CER/WER.
+- JSON, CSV, and Markdown authoritative reports now include accuracy,
+  performance, confidence distribution, recommendation, and limitation sections.
 
 ## 1.4.0
 

@@ -2,45 +2,79 @@
 
 **Project:** VideoText
 
-**Current Release:** Version 1.4.0
+**Current Release:** Version 1.5.0
 
-**Mission**
+---
 
-VideoText transforms visual instructional content into accurate, accessible, and human-verifiable documents that support translation, accessibility, preservation, and reuse while preserving the integrity of the original content.
+# Mission
+
+> **VideoText transforms visual instructional content into accurate, accessible, and human-verifiable documents while preserving evidence throughout every stage of processing.**
+
+Rather than replacing human expertise, VideoText prepares structured evidence so reviewers, translators, instructional designers, and accessibility specialists can work more efficiently and with greater confidence.
 
 ---
 
 # Vision
 
-VideoText began as a tool for extracting text from presentation videos. It has evolved into a modular platform for transforming visual instructional content into structured, reusable, and accessible documents.
+VideoText began as an OCR extraction utility.
 
-The processing pipeline is intentionally deterministic.
+It is evolving into an evidence-preserving content processing platform where every processing stage enriches prior work without replacing it.
 
-Each stage produces evidence for the next stage while preserving prior evidence. Downstream stages enrich information without modifying the original source evidence.
+```
+Video
+    ↓
+OCR
+    ↓
+Verified OCR (optional)
+    ↓
+Translation (optional)
+    ↓
+Verified Translation (optional)
+    ↓
+Accessibility (optional)
+    ↓
+Verified Accessible Outputs
+```
+
+Each layer preserves provenance.
 
 ---
 
 # Guiding Principles
 
-1. Accuracy over automation
-   - Never invent or rewrite content.
-   - Preserve original meaning.
+## 1. Accuracy over Automation
 
-2. Human-in-the-loop
-   - AI assists.
-   - Humans approve.
+- Never invent content.
+- Never silently rewrite evidence.
+- Preserve original meaning.
 
-3. Accessibility by design
-   - Outputs support accessibility rather than reproducing appearance.
+## 2. Human in the Loop
 
-4. Deterministic processing
-   - Improvements are measurable.
-   - Behavior is benchmarkable.
-   - Avoid generative "magic fixes."
+- AI proposes.
+- Humans verify.
+- Review is optional but always supported.
+
+## 3. Accessibility by Design
+
+Outputs communicate information rather than reproduce appearance.
+
+## 4. Deterministic Processing
+
+- Benchmarkable
+- Measurable
+- Reproducible
+
+Avoid generative "magic fixes."
+
+## 5. Preserve Evidence
+
+Original evidence is never discarded.
+
+Every processing stage adds information rather than replacing previous work.
 
 ---
 
-# Current Capabilities (Version 1.4)
+# Current Capabilities (Version 1.5)
 
 ## OCR
 
@@ -48,18 +82,27 @@ Each stage produces evidence for the next stage while preserving prior evidence.
 - Paragraph reconstruction
 - Duplicate suppression
 - Boundary stitching
-- OCR confidence preservation
 - Raw OCR evidence preservation
+- OCR confidence preservation
 - OCR quality statistics
 
-## OCR Architecture
+## OCR Framework
 
 - Engine abstraction
 - PaddleOCR adapter
-- Engine registration
 - Engine discovery
+- Engine registry
 - Shared OCR contract
 - Replay compatibility
+
+## Benchmarking
+
+- Human-verified benchmark corpus
+- OCR engine evaluation
+- CER/WER benchmarking
+- Confidence analysis
+- Performance benchmarking
+- Review utility
 
 ## Export
 
@@ -70,48 +113,8 @@ Each stage produces evidence for the next stage while preserving prior evidence.
 ## Diagnostics
 
 - OCR diagnostics
-- CER/WER benchmarking
-- Confidence statistics
 - OCR preprocessing experiments
-
----
-
-# Upcoming Releases
-
-# Version 1.5
-
-## Theme
-
-OCR Engine Evaluation
-
-### Release Goal
-
-Evaluate multiple OCR engines using the framework established in Version 1.4.
-
-### Planned Features
-
-- Additional OCR engine adapters
-- Side-by-side engine comparison
-- CER benchmarking
-- WER benchmarking
-- Performance benchmarking
-- Accuracy summaries
-- Engine evaluation reports
-
-### Evaluation status
-
-- PaddleOCR and RapidOCR now have isolated adapter, accuracy, and performance
-  evidence; see [OCR Engine Evaluation Report v1](ocr-engine-evaluation-report-v1.md).
-- Paddle remains the only production/default engine. Broader corpus coverage,
-  RapidOCR model-license verification, physical offline validation, and an
-  isolated packaging proof are required before any user-facing selection.
-
-### Out of Scope
-
-- OCR correction
-- GUI engine selection
-- Automatic engine selection
-- Cloud OCR
+- Confidence statistics
 
 ---
 
@@ -121,20 +124,20 @@ Evaluate multiple OCR engines using the framework established in Version 1.4.
 
 Translation Foundation
 
-### Release Goal
+### Goal
 
-Add AI translation as a downstream transformation while preserving original OCR evidence.
+Introduce translation as a downstream processing stage while preserving verified OCR evidence.
 
 ### Planned Features
 
-- Translation abstraction
+- Translation abstraction layer
 - Translation provider interface
-- Source and target language selection
-- Translation stored separately from OCR
+- Local and cloud translation providers
+- Source/target language selection
 - Translation provenance
-- Initial provider/local model
-- Translation export
-- Basic GUI controls
+- Translation stored separately from OCR
+- Translation exports
+- Initial GUI integration
 
 ---
 
@@ -142,39 +145,44 @@ Add AI translation as a downstream transformation while preserving original OCR 
 
 ## Theme
 
-Translation Workflow
+Translation Review Workflow
+
+### Goal
+
+Create a human-centered translation workflow.
 
 ### Planned Features
 
-- Multiple translation providers
+- Multiple providers
 - Batch translation
 - Glossaries
 - Preferred terminology
 - Translation notes
 - Re-translation
-- Quality review workflow
+- Translation review workspace
+- Translation verification status
 
 ---
 
-### Version 1.8
+# Version 1.8
 
-### Theme
+## Theme
 
-AI Assisted Understanding
+AI-Assisted Understanding
 
 ### Goal
 
-Augment OCR evidence using AI while preserving the deterministic OCR pipeline.
+Use AI to enrich OCR evidence without replacing deterministic OCR.
 
-### Features
+### Planned Features
 
 - Vision providers
 - Local vision models
 - Cloud vision models
-- Structured slide understanding
-- Diagram detection
+- Diagram understanding
 - Figure descriptions
 - Equation recognition
+- Structured slide understanding
 - Accessibility annotations
 - Optional AI summaries
 
@@ -183,6 +191,77 @@ Augment OCR evidence using AI while preserving the deterministic OCR pipeline.
 - Replacing OCR
 - Automatic rewriting
 - Mandatory cloud services
+
+---
+
+# Version 1.9
+
+## Theme
+
+Modern User Experience
+
+### Goal
+
+Transform VideoText into a modern, accessible desktop application while preserving its simplicity and offline-first philosophy.
+
+### Planned Features
+
+### Modern Interface
+
+- Updated visual design
+- Improved typography
+- Better spacing
+- Responsive layout
+- High-DPI support
+
+### Workflow
+
+- Clear step-by-step workflow
+- Better progress reporting
+- Recent projects
+- Processing summary
+- Improved dialogs
+
+### Processing Controls
+
+- Stop Processing
+- Graceful cancellation
+- Safe Exit
+- Background cleanup
+- Session recovery (optional)
+
+### Accessibility
+
+- Keyboard-first navigation
+- Screen-reader improvements
+- Focus indicators
+- High-contrast compatibility
+- DPI validation
+
+### Workspace Foundation
+
+Prepare the interface for:
+
+- OCR Review
+- Translation Review
+- Accessibility Review
+- AI-assisted review
+
+### Design Goals
+
+The interface should feel:
+
+- Professional
+- Calm
+- Trustworthy
+- Accessible
+- Modern
+
+### Out of Scope
+
+- Electron/WebView rewrite
+- Administrator requirements
+- Decorative animations
 
 ---
 
@@ -198,9 +277,11 @@ Accessibility Edition
 - Heading structure
 - Accessible tables
 - Lists
-- Logical reading order
+- Reading order
 - Screen-reader optimization
-- WCAG / Section 508 / ADA support
+- WCAG support
+- Section 508 support
+- ADA support
 
 ---
 
@@ -215,8 +296,8 @@ Accessible Multimedia Transcript
 - Speech-to-text
 - Speaker identification
 - Slide timing
-- Visual notes
-- Combined accessible transcript
+- Visual descriptions
+- Accessible multimedia transcript
 
 ---
 
@@ -224,78 +305,84 @@ Accessible Multimedia Transcript
 
 ## Theme
 
-Accessibility Workflow
+Human Verification Workspace
+
+### Goal
+
+Provide a unified review experience for OCR, translation, and accessibility.
 
 ### Planned Features
 
-- Accessibility review
-- Reviewer notes
-- Version tracking
-- Reading-order validation
-- Accessibility reports
+- Side-by-side image and text review
+- Accept/Edit/Flag workflow
+- OCR-region highlighting
+- Verified text layer
+- Reviewer attribution
+- Review progress
+- Save and resume
+- Project-based review
+- Optional verified-only exports
 
 ---
 
-# Future Milestones
+# Ongoing Project Initiatives
 
-## Portable Deployment Experience
+These continue across multiple releases.
 
-- Portable ZIP deployment
+## Benchmark Suite
+
+- Expand verified benchmark corpus
+- Additional sample videos
+- Additional content categories
+- Multilingual corpus
+- Long-term regression testing
+
+## Portable Deployment
+
+- Portable ZIP
 - No administrator rights
-- No installer required
 - First-run experience
 - Environment validation
 - OCR model verification
 - Output-folder creation
 - Update notification
 
----
-
-## GUI Workflow & Usability
-
-- Graceful Stop Processing
-- Safe Exit During Processing
-- Processing state management
-- Improved progress reporting
-- Remember last settings
-- Keyboard shortcuts
-- Optional session recovery
-
----
-
-## Developer Platform
+## Plugin Platform
 
 - OCR plugins
 - Translation plugins
 - Export plugins
 - Accessibility plugins
-- Custom processing workflows
+- Processing plugins
 
 ---
 
 # Long-Term Vision (3.x)
 
-VideoText becomes a complete accessibility and instructional-content transformation platform supporting:
+VideoText becomes a complete evidence-preserving accessibility and instructional-content platform supporting:
 
 - OCR
+- Human verification
 - Translation
 - Accessibility remediation
+- AI-assisted understanding
 - Accessible document generation
 - Multimedia transcripts
-- Multiple export formats
 - Compliance reporting
+- Multiple export formats
 
 ---
 
 # Design Principles
 
-Every feature should be:
+Every feature should strive to be:
 
 - Deterministic
-- Measurable
-- Benchmarkable
+- Evidence-preserving
 - Human-verifiable
 - Accessible
+- Measurable
+- Benchmarkable
 - Modular
 - Maintainable
 - Backward compatible whenever practical

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Version 1.5 will evaluate OCR engines using the engine-neutral contract added
+Version 1.5 evaluates OCR engines using the engine-neutral contract added
 in Version 1.4. The objective is to identify the best practical balance of
 accuracy, speed, resource use, offline operation, licensing, and Windows
 packaging compatibility for instructional presentation video content.
@@ -67,9 +67,9 @@ performance, accuracy, or offline suitability.
 
 The initial RapidOCR/PaddleOCR comparison is recorded in the authoritative
 [OCR Engine Evaluation Report v1](ocr-engine-evaluation-report-v1.md). It uses
-four human-verified saved frames and five isolated performance repetitions per
-engine. Paddle remains the production default; RapidOCR remains evaluation-only
-pending broader accuracy, model-license, offline, and packaging evidence.
+the authoritative nine-frame human-verified corpus and five isolated performance
+repetitions per engine. Paddle remains the production default; RapidOCR remains
+evaluation-only pending model-license, physical-offline, and packaging evidence.
 
 ## Candidate Scope
 

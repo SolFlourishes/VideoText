@@ -59,6 +59,7 @@ class EngineFrameBenchmarkResult:
     reconstructed_text: str
     raw_metrics: TextMetrics
     reconstructed_metrics: TextMetrics
+    confidences: tuple[float, ...] = ()
     missed_text_notes: str = ""
     false_positive_text_notes: str = ""
 
@@ -131,6 +132,7 @@ def evaluate_engine_frame(
         reconstructed_text=reconstructed_text,
         raw_metrics=score_text(frame.reference_text, raw_text),
         reconstructed_metrics=score_text(frame.reference_text, reconstructed_text),
+        confidences=tuple(result.confidence for result in results),
     )
 
 

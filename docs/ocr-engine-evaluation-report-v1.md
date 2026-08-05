@@ -148,7 +148,7 @@ benchmarking, but not for bundling or normal-user exposure yet.
 
 ## Limitations
 
-- Four high-contrast deterministic frames are not representative of all course videos.
+- The authoritative v2 corpus contains nine representative frames; it is still not representative of all course videos.
 - Measurements use one Windows CPU configuration with cached models; background activity can add noise.
 - GPU behavior was not evaluated.
 - No physical offline, clean-cache, or PyInstaller RapidOCR test was performed.
@@ -167,3 +167,28 @@ benchmarking, but not for bundling or normal-user exposure yet.
 - `docs/rapidocr-runtime-validation.md`
 - `output/task37e_ocr_engine_benchmark/ocr_engine_benchmark.json`
 - `output/task37f_performance/ocr_engine_performance.json`
+
+## Authoritative v2 update
+
+The verified nine-frame v2 corpus supersedes the earlier four-frame exploratory
+accuracy result. Its authoritative reconstructed metrics are PaddleOCR CER
+0.67% / WER 3.92% / 44.4% exact frames and RapidOCR CER 5.74% / WER 10.39% /
+33.3% exact frames. Paddle therefore remains the default. RapidOCR remains
+evaluation-only because its accuracy was lower on dense, small, structured, and
+punctuation-heavy content, and its licensing, physical-offline, and packaging
+gates remain unresolved. See
+`output/task37k_authoritative_benchmark/authoritative_benchmark.md`.
+
+## Authoritative v2 confidence analysis
+
+The authoritative output records native confidence evidence separately for each
+engine; these values are not calibrated across engines. PaddleOCR reported 144
+regions with mean/median confidence 98.14%/99.60%, one region below 60%, and a
+frame-level mean-confidence versus reconstructed-CER correlation of -0.388.
+RapidOCR reported 73 regions with mean/median confidence 97.39%/99.20%, no
+regions below 60%, and a corresponding correlation of -0.640. These negative
+correlations are descriptive only: the nine-frame corpus is small and higher
+engine-native confidence does not itself establish higher accuracy.
+
+The authoritative JSON, CSV, and Markdown outputs now carry the same accuracy,
+performance, confidence-distribution, recommendation, and limitation sections.

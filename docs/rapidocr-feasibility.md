@@ -11,9 +11,10 @@ change PaddleOCR's status as VideoText's only production/default engine.
 
 The documented API supplies text, per-line scores, and four-point line boxes,
 which can map deterministically to VideoText's canonical result model. The
-remaining decision blockers are empirical accuracy/performance measurements,
-Windows PyInstaller validation, and model-license verification for the exact
-model bundle selected for evaluation.
+remaining decision blockers are Windows PyInstaller validation, physical
+offline validation, and model-license verification for the exact model bundle
+selected for evaluation. The completed controlled benchmarks are documented in
+the authoritative OCR-engine evaluation report.
 
 ## Primary Sources
 
@@ -66,8 +67,9 @@ This supports offline use after the selected models are present, but requires
 Version 1.5 validation for a frozen Windows application: the installed-package
 default location may be unsuitable for writable runtime downloads, and the
 selected models plus ONNX Runtime must be explicitly collected by PyInstaller.
-Startup time, memory, package size, model size, and CPU performance are not
-claimed here; they require the planned benchmark.
+The controlled performance benchmark measured startup, memory, package/model
+size, and CPU performance. Those results are comparison evidence, not a
+production-readiness claim; see the authoritative evaluation report.
 
 ## Canonical Contract Mapping
 

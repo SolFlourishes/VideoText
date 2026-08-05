@@ -4,14 +4,19 @@
 
 Instead of performing OCR on every video frame, VideoText identifies stable presentation frames, extracts visible text, reconstructs reading order and paragraph structure, consolidates repeated observations, and exports the results into usable document formats.
 
-> **Current version: 1.4.0**
-## New in Version 1.4.0
+> **Current version: 1.5.0**
+>
+> **Version 1.5 status:** OCR-engine evaluation is complete; PaddleOCR remains
+> the only production/default engine while RapidOCR remains evaluation-only.
+## New in Version 1.5.0
 
 - Engine-neutral OCR contract with a PaddleOCR adapter
 - Deterministic engine registration and discovery
 - Paddle remains the only built-in and default OCR engine
 - Preprocessing experiments and benchmarks use the shared OCR contract
 - Clear VideoText Windows application icon
+- Human-verified OCR-engine evaluation corpus and authoritative reports
+- RapidOCR evaluation adapter, kept outside production processing
 
 ## Why VideoText?
 
@@ -191,10 +196,11 @@ VideoText preserves the original OCR regions before confidence filtering so conf
 VideoText uses a small OCR engine contract so the processing pipeline receives
 the same canonical OCR regions regardless of the underlying engine. Version
 1.4 registers Paddle as the only built-in and default engine; there is no GUI
-or command-line engine selector. Additional engines and comparisons are planned
-for Version 1.5. Preprocessing experiments and benchmarks use this same
-contract. The manual Paddle probe remains a developer diagnostic for inspecting
-raw PaddleOCR responses directly.
+or command-line engine selector. Version 1.5 completed controlled RapidOCR
+evaluation using the same contract, but RapidOCR remains evaluation-only while
+licensing, physical-offline, and packaging gates remain open. Preprocessing
+experiments and benchmarks use this same contract. The manual Paddle probe
+remains a developer diagnostic for inspecting raw PaddleOCR responses directly.
 
 ## Accuracy and Validation
 
@@ -215,6 +221,7 @@ See:
 * [Accuracy Benchmark](docs/accuracy-benchmark.md)
 * [OCR Diagnostics](docs/ocr-diagnostics.md)
 * [OCR Preprocessing Experiments](docs/ocr-preprocessing-experiments.md)
+* [OCR Engine Evaluation Report](docs/ocr-engine-evaluation-report-v1.md)
 * [Testing and Roadmap](docs/05-Testing-and-Roadmap.md)
 
 ## Known Limitations
