@@ -19,6 +19,8 @@ REQUIRED_DISTRIBUTIONS = (
     "paddlepaddle",
     "opencv-python",
     "openpyxl",
+    "ctranslate2",
+    "sentencepiece",
 )
 
 

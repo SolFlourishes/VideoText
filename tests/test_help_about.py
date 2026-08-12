@@ -110,7 +110,7 @@ class HelpAboutTests(unittest.TestCase):
 
     def test_shared_application_metadata_is_available_for_about_and_packaging(self):
         self.assertEqual(APP_NAME, "VideoText")
-        self.assertEqual(APP_RELEASE, "1.5.0")
+        self.assertEqual(APP_RELEASE, "1.6.0")
         self.assertEqual(APP_STATUS, "Release")
         self.assertEqual(APP_COPYRIGHT, "© 2026 Sol Roberts-Lieb")
 

@@ -33,6 +33,7 @@ RUNTIME_MODULES = [
     "cache_manager",
     "config",
     "csv_exporter",
+    "local_translation_provider",
     "excel_exporter",
     "export_manager",
     "frame_analyzer",
@@ -41,6 +42,7 @@ RUNTIME_MODULES = [
     "image_utils",
     "markdown_exporter",
     "models",
+    "openai_translation_provider",
     "ocr_engine",
     "os_integration",
     "paragraph_reconstruction",
@@ -64,6 +66,8 @@ RUNTIME_MODULES = [
 hiddenimports = list(RUNTIME_MODULES)
 hiddenimports += collect_submodules("paddleocr")
 hiddenimports += collect_submodules("paddle")
+hiddenimports += ["ctranslate2", "sentencepiece"]
+hiddenimports += collect_submodules("openai")
 
 datas = collect_data_files("paddleocr", include_py_files=False)
 datas += collect_data_files("paddlex", include_py_files=False)
@@ -73,6 +77,7 @@ datas += [(str(ICON_FILE), "icons")]
 binaries = collect_dynamic_libs("paddle")
 binaries += collect_dynamic_libs("paddlex")
 binaries += collect_dynamic_libs("cv2")
+binaries += collect_dynamic_libs("ctranslate2")
 
 # PaddleX validates OCR-core dependencies through importlib.metadata at runtime.
 # PyInstaller collects the corresponding modules, but not their distribution
@@ -85,6 +90,15 @@ for distribution in (
     "pypdfium2",
     "python-bidi",
     "shapely",
+    "ctranslate2",
+    "sentencepiece",
+    "openai",
+    "httpx",
+    "httpcore",
+    "h11",
+    "distro",
+    "jiter",
+    "certifi",
 ):
     datas += copy_metadata(distribution)
 

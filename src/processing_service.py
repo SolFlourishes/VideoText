@@ -539,62 +539,66 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
             reporter.stage("preparing_video", "Preparing video")
             video, fps = open_video(str(resolved_video_path))
 
-            try:
-                output_stem, run_directory = create_run_directory(
-                    output_root,
-                    str(resolved_video_path),
-                )
-                cache_directory = run_directory / "cache"
+            output_stem, run_directory = create_run_directory(
+                output_root,
+                str(resolved_video_path),
+            )
+            cache_directory = run_directory / "cache"
 
-                reporter.stage("frame_selection", "Selecting stable frames")
+            reporter.stage("frame_selection", "Selecting stable frames")
+            try:
                 candidate_frames = analyze_video(
                     video,
                     fps,
                     progress_callback=reporter.frame_selection,
                     total_frames=get_video_frame_count(video),
                 )
-                save_candidate_frames(candidate_frames, run_directory / "candidate_frames")
-                save_cache(candidate_frames, cache_directory / "candidate_frames.pkl")
-
-                reporter.stage("ocr", "Running OCR")
-                candidate_frames = perform_ocr(
-                    candidate_frames,
-                    progress_callback=lambda current, total: reporter.item(
-                        "ocr",
-                        "Running OCR",
-                        current,
-                        total,
-                    ),
-                )
-                if diagnostics is not None:
-                    diagnostics.capture_ocr_frames(candidate_frames)
-                save_cache(candidate_frames, cache_directory / "ocr_results.pkl")
-
-                reporter.stage("reading_order", "Determining reading order")
-                candidate_frames = reconstruct_reading_order(
-                    candidate_frames,
-                    progress_callback=lambda current, total: reporter.item(
-                        "reading_order",
-                        "Reconstructing paragraphs",
-                        current,
-                        total,
-                    ),
-                )
-                if diagnostics is not None:
-                    diagnostics.capture_reconstructed_frames(candidate_frames)
-                save_cache(candidate_frames, cache_directory / "reading_order.pkl")
-
-                return _finish_run(
-                    candidate_frames,
-                    request,
-                    run_directory,
-                    output_stem,
-                    {"video_path": str(resolved_video_path)},
-                    reporter,
-                    diagnostics,
-                )
             finally:
+                # CandidateFrame owns the selected image arrays.  Release the
+                # decoder before PaddleOCR initializes so full-video runs have
+                # the same resource boundary as candidate-cache replay.
                 video.release()
+
+            save_candidate_frames(candidate_frames, run_directory / "candidate_frames")
+            save_cache(candidate_frames, cache_directory / "candidate_frames.pkl")
+
+            reporter.stage("ocr", "Running OCR")
+            candidate_frames = perform_ocr(
+                candidate_frames,
+                progress_callback=lambda current, total: reporter.item(
+                    "ocr",
+                    "Running OCR",
+                    current,
+                    total,
+                ),
+            )
+            if diagnostics is not None:
+                diagnostics.capture_ocr_frames(candidate_frames)
+            save_cache(candidate_frames, cache_directory / "ocr_results.pkl")
+
+            reporter.stage("reading_order", "Determining reading order")
+            candidate_frames = reconstruct_reading_order(
+                candidate_frames,
+                progress_callback=lambda current, total: reporter.item(
+                    "reading_order",
+                    "Reconstructing paragraphs",
+                    current,
+                    total,
+                ),
+            )
+            if diagnostics is not None:
+                diagnostics.capture_reconstructed_frames(candidate_frames)
+            save_cache(candidate_frames, cache_directory / "reading_order.pkl")
+
+            return _finish_run(
+                candidate_frames,
+                request,
+                run_directory,
+                output_stem,
+                {"video_path": str(resolved_video_path)},
+                reporter,
+                diagnostics,
+            )
         finally:
             resolved_source.cleanup()
 

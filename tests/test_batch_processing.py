@@ -200,7 +200,7 @@ class BatchProcessingTests(unittest.TestCase):
         self.assertIn("def _show_batch_completion_dialog", gui_source)
         batch_handler = gui_source.split('elif message_type == "batch_complete"', maxsplit=1)[1]
         batch_handler = batch_handler.split('elif message_type == "error"', maxsplit=1)[0]
-        self.assertIn("_show_batch_completion_dialog(payload)", batch_handler)
+        self.assertIn("_show_batch_completion_dialog(payload, translation_result)", batch_handler)
         self.assertNotIn("_show_completion_dialog(payload)", batch_handler)
 
     def test_consolidated_excel_uses_one_batch_workbook_and_skips_per_video_excel(self):

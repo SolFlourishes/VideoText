@@ -226,6 +226,25 @@ class ProcessingServiceTests(unittest.TestCase):
         self.assertTrue((result.run_directory / "cache" / "reading_order.pkl").is_file())
         self.assertFalse((result.run_directory / "diagnostics").exists())
 
+    def test_full_video_releases_decoder_before_paddle_ocr_starts(self):
+        video = MagicMock()
+        video_path = self.root / "decoder-boundary.mp4"
+        video_path.touch()
+
+        def assert_decoder_released(frames, **_kwargs):
+            video.release.assert_called_once()
+            return frames
+
+        with (
+            patch.object(processing_service, "open_video", return_value=(video, 30)),
+            patch.object(processing_service, "analyze_video", return_value=[]),
+            patch.object(processing_service, "save_candidate_frames"),
+            patch.object(processing_service, "perform_ocr", side_effect=assert_decoder_released),
+            patch.object(processing_service, "reconstruct_reading_order", side_effect=lambda frames, **_: frames),
+            patch.object(processing_service, "export_all", return_value={}),
+        ):
+            process_request(self.request(ProcessingMode.FULL_VIDEO, video_path))
+
     def test_non_strict_diagnostic_failure_does_not_fail_processing(self):
         checkpoint = self.checkpoint("reading_order.pkl")
         request = ProcessingRequest(

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "purpose": "Development-only offline translation evaluation; source strings are preserved exactly and no output is canonical evidence.",
+  "segments": [
+    {"id": "title", "text": "Mobilizing Spiritual Systems of Belief", "reason": "short slide title and proper nouns"},
+    {"id": "sentence", "text": "Make suggestions based on positive personal experience and empirical support.", "reason": "complete instructional sentence"},
+    {"id": "bullet", "text": "• Encourage practice and discipline to benefit from resources", "reason": "bullet marker and fragment"},
+    {"id": "health", "text": "Assess the client's religiousness or spirituality before integrating it into treatment.", "reason": "health-professions terminology and possessive punctuation"},
+    {"id": "numerals", "text": "Step 7: Consider 3 levels of integration.", "reason": "numerals and instructional language"},
+    {"id": "line_break", "text": "Every morning, I wake up with a feeling\nof dread.", "reason": "OCR-like line break"},
+    {"id": "ambiguous", "text": "The client said they felt fine after the session.", "reason": "intentionally ambiguous pronoun and clinical context"}
+  ],
+  "language_pairs": [
+    {"source": "en", "target": "es"},
+    {"source": "en", "target": "de"}
+  ]
+}

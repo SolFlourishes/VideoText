@@ -10,7 +10,8 @@ import queue
 import sys
 import threading
 import tkinter as tk
-from tkinter import filedialog, scrolledtext, ttk
+import traceback
+from tkinter import filedialog, messagebox, simpledialog, scrolledtext, ttk
 
 from app_info import APP_COPYRIGHT, APP_NAME, APP_RELEASE, APP_STATUS
 from help_content import (
@@ -18,6 +19,7 @@ from help_content import (
     get_about_sections,
     get_about_text,
     get_accuracy_validation_text,
+    get_accessibility_text,
     get_how_to_use_text,
 )
 from batch_processing import (
@@ -50,6 +52,17 @@ from processing_service import (
     process_request,
 )
 from video_source import VideoSource, VideoSourceError
+from openai_translation_provider import OpenAITranslationConfig, OpenAITranslationProvider
+from local_translation_provider import (LocalCTranslate2Provider, LocalTranslationConfig,
+    default_local_translation_model_root, inspect_installed_local_translation_models)
+from runtime_diagnostics import write_gui_diagnostic
+from translation_application import TranslationApplicationSource, run_translation_job
+from translation_job import TranslationOutputGrouping, TranslationSourceItem
+from translation_settings import (
+    OPENAI_TRANSLATION_MODEL, RECOMMENDED_OPENAI_MODEL_LABEL,
+    TRANSLATION_TARGET_LOCALES, VETTED_OPENAI_TRANSLATION_MODELS,
+    resolve_vetted_openai_model, translation_locale_display_name,
+)
 
 
 def _application_icon_path() -> Path:
@@ -60,6 +73,14 @@ def _application_icon_path() -> Path:
     else:
         resource_root = Path(__file__).resolve().parent.parent
     return resource_root / "icons" / "VT-icon.ico"
+
+
+def _next_locale_control_index(current_index: int, control_count: int, direction: int) -> int:
+    """Return the wrapped keyboard-navigation index for selectable locales."""
+
+    if control_count <= 0:
+        raise ValueError("Locale navigation requires at least one selectable control.")
+    return (current_index + direction) % control_count
 
 
 class VideoTextApp(ttk.Frame):
@@ -89,6 +110,19 @@ class VideoTextApp(ttk.Frame):
         self.message_queue = queue.Queue()
         self.batch_paths: list[str] = []
         self.batch_excel_consolidated = tk.BooleanVar(value=False)
+        self.translation_enabled = tk.BooleanVar(value=False)
+        self.translation_provider = tk.StringVar(value="")
+        self.translation_model = tk.StringVar(value=RECOMMENDED_OPENAI_MODEL_LABEL)
+        self.translation_grouping = tk.StringVar(value=TranslationOutputGrouping.BY_SOURCE.value)
+        self.translation_languages = {code: tk.BooleanVar(value=False) for code, _label in TRANSLATION_TARGET_LOCALES}
+        self.translation_formats = {"excel": tk.BooleanVar(value=True), "csv": tk.BooleanVar(value=False), "markdown": tk.BooleanVar(value=False)}
+        # Manifest discovery is deliberately lightweight.  Do not import the
+        # CTranslate2 runtime or construct a provider until downstream
+        # translation begins after OCR has completed.
+        self.local_translation_model_root = default_local_translation_model_root()
+        self.local_translation_availability = inspect_installed_local_translation_models(
+            self.local_translation_model_root,
+        )
         self.batch_controls: list[ttk.Button] = []
         self.batch_excel_controls: list[ttk.Radiobutton] = []
         # Keep the GUI's original all-formats default, then apply the saved
@@ -130,6 +164,7 @@ class VideoTextApp(ttk.Frame):
             label="Accuracy & Validation",
             command=self._show_accuracy_validation,
         )
+        help_menu.add_command(label="Accessibility", command=self._show_accessibility)
         help_menu.add_command(
             label="About VideoText",
             command=self._show_about,
@@ -147,7 +182,7 @@ class VideoTextApp(ttk.Frame):
         self.master.columnconfigure(0, weight=1)
         self.master.rowconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
-        self.rowconfigure(9, weight=1)
+        self.rowconfigure(10, weight=1)
 
         self.source_choice_frame = ttk.Frame(self)
         self.source_choice_frame.grid(
@@ -311,7 +346,7 @@ class VideoTextApp(ttk.Frame):
             pady=(0, 8),
         )
 
-        formats_frame = ttk.LabelFrame(self, text="Export Formats", padding=8)
+        formats_frame = ttk.LabelFrame(self, text="OCR Outputs", padding=8)
         formats_frame.grid(
             row=6,
             column=0,
@@ -329,13 +364,81 @@ class VideoTextApp(ttk.Frame):
             ).grid(row=0, column=column, padx=(0, 16), sticky="w")
         self._update_batch_excel_options()
 
+        self.translation_frame = ttk.LabelFrame(self, text="Optional Translation", padding=8)
+        self.translation_frame.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        ttk.Checkbutton(self.translation_frame, text="Translate OCR text", variable=self.translation_enabled,
+                        command=self._update_translation_controls).grid(row=0, column=0, columnspan=3, sticky="w")
+        self.translation_controls = []
+        ttk.Label(self.translation_frame, text="Provider").grid(row=1, column=0, sticky="w", pady=(6, 0))
+        openai = ttk.Radiobutton(self.translation_frame, text="OpenAI Cloud — Uses your OpenAI API key", value="openai", variable=self.translation_provider)
+        openai.grid(row=1, column=1, sticky="w", pady=(6, 0)); self.translation_controls.append(openai)
+        local_state = "normal" if self.local_translation_availability.installed_models else "disabled"
+        local_text = ("Local Translation - Offline, no API key required"
+                      if self.local_translation_availability.installed_models
+                      else "Local Translation (No approved models installed)")
+        self.local_translation_control = ttk.Radiobutton(
+            self.translation_frame, text=local_text, value="local", variable=self.translation_provider,
+            state=local_state, command=self._update_translation_provider_view)
+        self.local_translation_control.grid(row=2, column=1, columnspan=2, sticky="w")
+        ttk.Label(self.translation_frame, text="Model").grid(row=3, column=0, sticky="w")
+        model_selector = ttk.Combobox(self.translation_frame, textvariable=self.translation_model,
+            values=tuple(label for label, _model in VETTED_OPENAI_TRANSLATION_MODELS), state="readonly", width=32)
+        model_selector.grid(row=3, column=1, sticky="w"); self.translation_controls.append(model_selector)
+        self.translation_model_selector = model_selector
+        self.translation_provider_detail = ttk.Label(self.translation_frame, text="Internet required • API charges may apply to your account")
+        self.translation_provider_detail.grid(row=3, column=2, sticky="w")
+        ttk.Label(self.translation_frame, text="Target locales").grid(row=4, column=0, sticky="w", pady=(6, 0))
+        self.translation_locale_summary = tk.StringVar()
+        self.translation_locale_button = ttk.Button(
+            self.translation_frame,
+            textvariable=self.translation_locale_summary,
+            command=self._show_translation_locale_selector,
+        )
+        self.translation_locale_button.grid(row=4, column=1, columnspan=2, sticky="w", pady=(6, 0))
+        self.translation_controls.append(self.translation_locale_button)
+
+        self.single_translation_grouping_label = ttk.Label(
+            self.translation_frame,
+            text="Workbook organization: One workbook per video",
+        )
+        self.single_translation_grouping_label.grid(row=5, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        self.translation_grouping_frame = ttk.Frame(self.translation_frame)
+        self.translation_grouping_frame.grid(row=5, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        self.translation_grouping_controls = []
+        for index, (label, value) in enumerate((("One workbook per language", "by_language"),("One workbook per video", "by_source"),("One combined workbook", "combined"),("Separate workbook per video/language", "separate"))):
+            control = ttk.Radiobutton(self.translation_grouping_frame, text=label, value=value, variable=self.translation_grouping)
+            control.grid(row=index // 2, column=index % 2, padx=(0, 16), sticky="w")
+            self.translation_controls.append(control)
+            self.translation_grouping_controls.append(control)
+
+        self.translation_outputs_frame = ttk.LabelFrame(
+            self.translation_frame, text="Translation Outputs", padding=6,
+        )
+        self.translation_outputs_frame.grid(row=6, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        translation_output_labels = {
+            "excel": "Translation Review Workbook",
+            "csv": "Translation CSV",
+            "markdown": "Translation Markdown",
+        }
+        for index, (name, variable) in enumerate(self.translation_formats.items()):
+            control = ttk.Checkbutton(
+                self.translation_outputs_frame,
+                text=translation_output_labels[name],
+                variable=variable,
+            )
+            control.grid(row=0, column=index, padx=(0, 16), sticky="w")
+            self.translation_controls.append(control)
+        self.translation_provider.trace_add("write", lambda *_args: self._update_translation_provider_view())
+        self._update_translation_workbook_grouping()
+        self._update_translation_controls()
+
         self.process_button = ttk.Button(
             self,
             text="Process",
             command=self._start_processing,
         )
         self.process_button.grid(
-            row=7,
+            row=8,
             column=0,
             columnspan=3,
             pady=(0, 8),
@@ -343,7 +446,7 @@ class VideoTextApp(ttk.Frame):
 
         progress_frame = ttk.LabelFrame(self, text="Progress", padding=8)
         progress_frame.grid(
-            row=8,
+            row=9,
             column=0,
             columnspan=3,
             sticky="ew",
@@ -372,7 +475,7 @@ class VideoTextApp(ttk.Frame):
 
         log_frame = ttk.LabelFrame(self, text="Log", padding=8)
         log_frame.grid(
-            row=9,
+            row=10,
             column=0,
             columnspan=3,
             sticky="nsew",
@@ -579,6 +682,7 @@ class VideoTextApp(ttk.Frame):
                 self.video_browse_button.grid()
 
         self._update_batch_excel_options()
+        self._update_translation_workbook_grouping()
 
     def _add_batch_videos(self) -> None:
         paths = filedialog.askopenfilenames(
@@ -648,6 +752,183 @@ class VideoTextApp(ttk.Frame):
             control.configure(state="normal" if enabled else "disabled")
         if not enabled:
             self.batch_excel_consolidated.set(False)
+
+    def _update_translation_controls(self) -> None:
+        """Enable translation choices only after explicit user opt-in."""
+        state = "normal" if self.translation_enabled.get() else "disabled"
+        for control in self.translation_controls:
+            control.configure(state=state)
+        local_state = state if self.local_translation_availability.installed_models else "disabled"
+        self.local_translation_control.configure(state=local_state)
+        self._update_translation_provider_view()
+
+    def _update_translation_provider_view(self) -> None:
+        """Reflect local availability without silently altering selected locales."""
+
+        local = self.translation_provider.get() == "local"
+        self.translation_model_selector.configure(state="disabled" if local else
+                                                 ("readonly" if self.translation_enabled.get() else "disabled"))
+        self.translation_provider_detail.configure(
+            text="Offline • No API key required" if local else "Internet required • API charges may apply to your account")
+        self._update_translation_summary()
+
+    def _available_translation_targets(self) -> set[str]:
+        """Return the exact target locales usable by the selected provider."""
+
+        if self.translation_provider.get() != "local":
+            return set(self.translation_languages)
+        return {target for source, target in self.local_translation_availability.installed_pairs
+                if source in {"en", "en-US"}}
+
+    def _update_translation_summary(self) -> None:
+        """Summarize compact locale state without hiding unavailable selections."""
+
+        selected = [label for code, label in TRANSLATION_TARGET_LOCALES
+                    if self.translation_languages[code].get()]
+        unavailable = set(self.translation_languages) - self._available_translation_targets()
+        unavailable_selected = sum(self.translation_languages[code].get() for code in unavailable)
+        if not selected:
+            text = "Choose target locales…"
+        elif len(selected) <= 2:
+            text = "; ".join(selected)
+        else:
+            text = f"{len(selected)} locales selected"
+        if unavailable_selected:
+            text += f" ({unavailable_selected} unavailable)"
+        self.translation_locale_summary.set(text)
+
+    def _show_translation_locale_selector(self) -> None:
+        """Open a native-control, keyboard-accessible multi-locale chooser."""
+
+        if not self.translation_enabled.get():
+            return
+        dialog = tk.Toplevel(self.master)
+        dialog.title("Target Locales")
+        dialog.transient(self.master)
+        dialog.resizable(True, False)
+        dialog.columnconfigure(0, weight=1)
+        _center_dialog(dialog, self.master, preferred_width=520, preferred_height=390)
+        ttk.Label(dialog, text="Target locales", font=("TkDefaultFont", 11, "bold")).grid(
+            row=0, column=0, sticky="w", padx=12, pady=(12, 4),
+        )
+        ttk.Label(dialog, text="Use Up/Down or Tab to move, Space to select a locale, Enter to apply, or Escape to cancel.").grid(
+            row=1, column=0, sticky="w", padx=12, pady=(0, 8),
+        )
+        choices = ttk.Frame(dialog)
+        choices.grid(row=2, column=0, sticky="ew", padx=12)
+        available = self._available_translation_targets()
+        pending = {code: tk.BooleanVar(value=variable.get())
+                   for code, variable in self.translation_languages.items()}
+        first_enabled = None
+        selectable_controls = []
+        for row, (code, label) in enumerate(TRANSLATION_TARGET_LOCALES):
+            enabled = code in available
+            control = ttk.Checkbutton(
+                choices, text=label if enabled else f"{label} — model not installed",
+                variable=pending[code], state="normal" if enabled else "disabled",
+            )
+            control.grid(row=row, column=0, sticky="w", pady=2)
+            if enabled:
+                selectable_controls.append(control)
+                if first_enabled is None:
+                    first_enabled = control
+
+        def move_locale_focus(current_index: int, direction: int):
+            """Keep arrow navigation within selectable locale choices."""
+
+            selectable_controls[
+                _next_locale_control_index(current_index, len(selectable_controls), direction)
+            ].focus_set()
+            return "break"
+
+        for index, control in enumerate(selectable_controls):
+            control.bind("<Up>", lambda _event, index=index: move_locale_focus(index, -1))
+            control.bind("<Down>", lambda _event, index=index: move_locale_focus(index, 1))
+        buttons = ttk.Frame(dialog)
+        buttons.grid(row=3, column=0, sticky="e", padx=12, pady=12)
+
+        def close() -> None:
+            dialog.destroy()
+            self.translation_locale_button.focus_set()
+
+        def apply() -> None:
+            for code, variable in self.translation_languages.items():
+                if code in available:
+                    variable.set(pending[code].get())
+            self._update_translation_summary()
+            close()
+
+        ttk.Button(buttons, text="Cancel", command=close).grid(row=0, column=0, padx=(0, 8))
+        apply_button = ttk.Button(buttons, text="Apply", command=apply)
+        apply_button.grid(row=0, column=1)
+        dialog.protocol("WM_DELETE_WINDOW", close)
+        dialog.bind("<Escape>", lambda _event: close())
+        dialog.bind("<Return>", lambda _event: apply())
+        dialog.grab_set()
+        (first_enabled or apply_button).focus_set()
+
+    def _update_translation_workbook_grouping(self) -> None:
+        """Expose only the useful default grouping for a single video."""
+
+        if self.run_mode.get() == "single":
+            self.translation_grouping.set(TranslationOutputGrouping.BY_SOURCE.value)
+            self.translation_grouping_frame.grid_remove()
+            self.single_translation_grouping_label.grid()
+        else:
+            self.single_translation_grouping_label.grid_remove()
+            self.translation_grouping_frame.grid()
+
+    def _translation_configuration(self):
+        """Collect explicit, session-only cloud choices without constructing a provider."""
+        if not self.translation_enabled.get():
+            return None
+        languages = tuple(code for code, variable in self.translation_languages.items() if variable.get())
+        if not languages:
+            self._set_status("Select at least one target language for translation.")
+            return False
+        provider_name = self.translation_provider.get()
+        if provider_name not in {"openai", "local"}:
+            self._set_status("Select an available translation provider.")
+            return False
+        formats = tuple(name for name, variable in self.translation_formats.items() if variable.get())
+        if not formats:
+            self._set_status("Select at least one translation output format.")
+            return False
+        if provider_name == "local":
+            installed = {target for source, target in self.local_translation_availability.installed_pairs if source == "en"}
+            if any(language not in installed for language in languages):
+                self._set_status("Local translation model not installed for this language pair.")
+                return False
+            grouping = (
+                TranslationOutputGrouping.BY_SOURCE
+                if self.run_mode.get() == "single"
+                else TranslationOutputGrouping(self.translation_grouping.get())
+            )
+            return ("local", languages, grouping, formats, None, None)
+        try:
+            model = resolve_vetted_openai_model(self.translation_model.get())
+        except ValueError as error:
+            self._set_status(str(error))
+            return False
+        acknowledged = messagebox.askokcancel(
+            "Cloud Translation Disclosure",
+            "Selected OCR-derived text will be transmitted to OpenAI.\n\n"
+            "Video and image data are not sent by this translation provider. Internet access and an API key are required; usage may incur charges. Translation remains subject to human review.\n\nContinue?",
+            parent=self.master,
+        )
+        if not acknowledged:
+            self._set_status("Translation was cancelled before any text was sent.")
+            return False
+        api_key = simpledialog.askstring("OpenAI API Key", "Enter an API key for this session only:", parent=self.master, show="*")
+        if not api_key or not api_key.strip():
+            self._set_status("Translation requires an OpenAI API key.")
+            return False
+        grouping = (
+            TranslationOutputGrouping.BY_SOURCE
+            if self.run_mode.get() == "single"
+            else TranslationOutputGrouping(self.translation_grouping.get())
+        )
+        return ("openai", languages, grouping, formats, api_key.strip(), model)
 
     def _remember_recent_source(self, source: str) -> None:
         preferences = getattr(self, "preferences", None)
@@ -897,6 +1178,12 @@ class VideoTextApp(ttk.Frame):
         if not selected_formats:
             self._set_status("Select at least one export format.")
             return
+        translation_configuration = (
+            self._translation_configuration()
+            if hasattr(self, "translation_enabled") else None
+        )
+        if translation_configuration is False:
+            return
 
         self.processing = True
         self.process_button.configure(state="disabled")
@@ -919,11 +1206,19 @@ class VideoTextApp(ttk.Frame):
                     formats=selected_formats,
                     progress_callback=self._queue_progress,
                 ),
-            ),
+            ) if translation_configuration is None else (
+                ProcessingRequest(
+                    mode=mode, source_path=source_path, output_directory=output_folder,
+                    formats=selected_formats, progress_callback=self._queue_progress,
+                ), translation_configuration),
             daemon=True,
         )
         worker.start()
         self.after(100, self._poll_worker_messages)
+
+    def _show_accessibility(self) -> None:
+        """Open keyboard guidance and current accessibility limitations."""
+        self._show_help_dialog("Accessibility", get_accessibility_text())
 
     def _start_batch_processing(self) -> None:
         """Start a shared sequential full-video batch from the visible queue."""
@@ -947,6 +1242,12 @@ class VideoTextApp(ttk.Frame):
         if not selected_formats:
             self._set_status("Select at least one export format.")
             return
+        translation_configuration = (
+            self._translation_configuration()
+            if hasattr(self, "translation_enabled") else None
+        )
+        if translation_configuration is False:
+            return
 
         self.processing = True
         self.process_button.configure(state="disabled")
@@ -964,38 +1265,94 @@ class VideoTextApp(ttk.Frame):
                 formats=selected_formats,
                 consolidated_excel=self.batch_excel_consolidated.get(),
                 progress_callback=self._queue_batch_progress,
-            ),),
+            ), translation_configuration),
             daemon=True,
         )
         worker.start()
         self.after(100, self._poll_worker_messages)
 
-    def _run_processing_worker(
-        self,
-        request: ProcessingRequest,
-    ) -> None:
+    def _run_processing_worker(self, request: ProcessingRequest, translation_configuration=None) -> None:
         """Run the pipeline without interacting with Tkinter widgets."""
 
         try:
+            write_gui_diagnostic("processing started", f"mode={request.mode.value}")
             result = process_request(request)
-            self.message_queue.put(("complete", result))
+            write_gui_diagnostic("ocr processing completed", f"run_directory={result.run_directory}")
+            translation_result = self._translate_completed_results(
+                (result,), translation_configuration, result.run_directory / "translations",
+            )
+            write_gui_diagnostic("processing completed", f"run_directory={result.run_directory}")
+            self.message_queue.put(("complete", (result, translation_result)))
 
         except PermissionError as error:
+            diagnostic_path = write_gui_diagnostic("processing permission error", traceback.format_exc())
+            if diagnostic_path is not None:
+                self.message_queue.put(("error", f"{error}\nDiagnostic log: {diagnostic_path}"))
+                return
             self.message_queue.put(("error", str(error)))
 
         except Exception as error:
+            diagnostic_path = write_gui_diagnostic("processing exception", traceback.format_exc())
+            detail = f"{type(error).__name__}: {error}"
+            if diagnostic_path is not None:
+                detail += f"\nDiagnostic log: {diagnostic_path}"
             self.message_queue.put(
-                ("error", f"{type(error).__name__}: {error}")
+                ("error", detail)
             )
 
-    def _run_batch_worker(self, request: BatchProcessingRequest) -> None:
+    def _translate_completed_results(self, processing_results, configuration, output_directory: Path):
+        """Invoke optional translation only after OCR processing and consent."""
+        if configuration is None:
+            return None
+        provider_name, languages, grouping, formats, api_key, model = configuration
+        if provider_name == "local":
+            # Constructing the provider does not load its model.  The first
+            # model load happens inside translation, after OCR has returned.
+            write_gui_diagnostic("local translation provider construction")
+            provider = LocalCTranslate2Provider(
+                LocalTranslationConfig(self.local_translation_model_root),
+            )
+        else:
+            provider = OpenAITranslationProvider(OpenAITranslationConfig(
+                model=model, api_key=api_key,
+            ))
+            # A missing frozen SDK or invalid client construction is an
+            # application-level failure, not one failed API call per paragraph.
+            provider.ensure_ready()
+        sources = tuple(TranslationApplicationSource(
+            TranslationSourceItem(
+                f"source-{index}", _translation_source_identity(result) or f"Video {index + 1}",
+                f"processing:{index}", index,
+            ), result.presentation,
+        ) for index, result in enumerate(processing_results))
+        job_id = f"translation-{Path(processing_results[0].run_directory).name}"
+        self.message_queue.put(("translation_progress", (0, sum(
+            sum(len(slide.paragraphs) for slide in result.presentation.slides) for result in processing_results
+        ) * len(languages))))
+        write_gui_diagnostic("translation started", f"provider={provider_name}; targets={','.join(languages)}")
+        return run_translation_job(job_id, sources, "en", languages, provider, grouping,
+            formats, output_directory,
+            progress_callback=lambda current, total: self.message_queue.put(("translation_progress", (current, total))),
+        )
+
+    def _run_batch_worker(self, request: BatchProcessingRequest, translation_configuration=None) -> None:
         """Run the shared batch service without interacting with Tkinter."""
 
         try:
-            self.message_queue.put(("batch_complete", process_batch(request)))
+            write_gui_diagnostic("batch processing started", f"items={len(request.source_paths)}")
+            result = process_batch(request)
+            processing_results = tuple(item.processing_result for item in result.successful_items if item.processing_result is not None)
+            translation_result = self._translate_completed_results(
+                processing_results, translation_configuration, request.output_directory / "translations",
+            ) if processing_results else None
+            self.message_queue.put(("batch_complete", (result, translation_result)))
         except Exception as error:
+            diagnostic_path = write_gui_diagnostic("batch processing exception", traceback.format_exc())
+            detail = f"{type(error).__name__}: {error}"
+            if diagnostic_path is not None:
+                detail += f"\nDiagnostic log: {diagnostic_path}"
             self.message_queue.put(
-                ("error", f"{type(error).__name__}: {error}")
+                ("error", detail)
             )
 
     def _queue_progress(self, progress: ProcessingProgress) -> None:
@@ -1022,16 +1379,32 @@ class VideoTextApp(ttk.Frame):
                     self._show_batch_progress(payload)
 
                 elif message_type == "complete":
+                    if isinstance(payload, tuple):
+                        payload, translation_result = payload
+                    else:
+                        translation_result = None
                     self._remember_recent_source(payload.source_path)
                     self._append_log(f"Output folder: {payload.run_directory}")
                     for format_name, path in payload.exported_paths.items():
                         self._append_log(
                             f"Saved {format_name.title()}: {path}"
                         )
+                    if translation_result is not None:
+                        self._append_log(f"Translation provider: {translation_result.job.provider_name}")
+                        self._append_log(f"Translations: {translation_result.export_result.success_count} succeeded, {translation_result.export_result.failure_count} failed, {translation_result.review_recommended_count} marked Review Recommended")
+                        for format_name, paths in translation_result.export_result.paths.items():
+                            for path in paths: self._append_log(f"Saved translation {format_name.title()}: {path}")
                     self._finish_processing()
-                    self._show_completion_dialog(payload)
+                    if translation_result is None:
+                        self._show_completion_dialog(payload)
+                    else:
+                        self._show_completion_dialog(payload, translation_result)
 
                 elif message_type == "batch_complete":
+                    if isinstance(payload, tuple):
+                        payload, translation_result = payload
+                    else:
+                        translation_result = None
                     for item in payload.successful_items:
                         self._remember_recent_source(item.source_path)
                     for item in payload.failed_items:
@@ -1041,12 +1414,25 @@ class VideoTextApp(ttk.Frame):
                         )
                     self._finish_processing()
                     self._set_batch_controls_state("normal")
-                    self._show_batch_completion_dialog(payload)
+                    if translation_result is not None:
+                        self._append_log(f"Translations: {translation_result.export_result.success_count} succeeded, {translation_result.export_result.failure_count} failed, {translation_result.review_recommended_count} marked Review Recommended")
+                        for format_name, paths in translation_result.export_result.paths.items():
+                            for path in paths: self._append_log(f"Saved translation {format_name.title()}: {path}")
+                    self._show_batch_completion_dialog(payload, translation_result)
+
+                elif message_type == "translation_progress":
+                    current, total = payload
+                    self.status.set(f"Translating {current} of {total}")
+                    if total:
+                        self.progress_bar.configure(mode="determinate")
+                        self.progress_value.set(int((current / total) * 100))
 
                 elif message_type == "error":
                     self._set_status(f"Processing failed: {payload}")
                     self._finish_processing()
                     self._set_batch_controls_state("normal")
+                    if hasattr(self, "master"):
+                        self._show_processing_error(payload)
 
         except queue.Empty:
             pass
@@ -1171,7 +1557,12 @@ class VideoTextApp(ttk.Frame):
         self.progress_value.set(0)
         self.progress_details.set("")
 
-    def _show_completion_dialog(self, result) -> None:
+    def _show_processing_error(self, detail: str) -> None:
+        """Present a concise recoverable worker failure on the GUI thread."""
+
+        messagebox.showerror("VideoText Processing Failed", detail, parent=self.master)
+
+    def _show_completion_dialog(self, result, translation_result=None) -> None:
         """Show the shared completion summary in a readable modal dialog."""
 
         dialog = tk.Toplevel(self.master)
@@ -1218,11 +1609,8 @@ class VideoTextApp(ttk.Frame):
             yscrollcommand=vertical_scrollbar.set,
             xscrollcommand=horizontal_scrollbar.set,
         )
-        summary_text.insert(
-            "1.0",
-            _format_completion_dialog_text(format_processing_summary(result))
-            + _format_ocr_quality_section(result.ocr_confidence_statistics),
-        )
+        summary = _compose_completion_dialog_text(result, translation_result)
+        summary_text.insert("1.0", summary)
         summary_text.configure(state="disabled")
 
         button_frame = ttk.Frame(dialog)
@@ -1250,7 +1638,7 @@ class VideoTextApp(ttk.Frame):
         dialog.grab_set()
         close_button.focus_set()
 
-    def _show_batch_completion_dialog(self, result) -> None:
+    def _show_batch_completion_dialog(self, result, translation_result=None) -> None:
         """Show one selectable custom summary after all batch items finish."""
 
         dialog = tk.Toplevel(self.master)
@@ -1275,7 +1663,10 @@ class VideoTextApp(ttk.Frame):
             yscrollcommand=scrollbar.set,
             xscrollcommand=horizontal_scrollbar.set,
         )
-        summary_text.insert("1.0", format_batch_summary(result))
+        summary = format_batch_summary(result)
+        if translation_result is not None:
+            summary += _format_translation_completion_section(translation_result)
+        summary_text.insert("1.0", summary)
         summary_text.configure(state="disabled")
 
         def close_dialog() -> None:
@@ -1518,6 +1909,91 @@ def _center_dialog(
     dialog.geometry(f"{width}x{height}+{x}+{y}")
 
 
+def _format_translation_completion_section(translation_result) -> str:
+    """Format optional completed translation evidence without exposing secrets."""
+
+    exported = translation_result.export_result
+    target_labels = [
+        translation_locale_display_name(locale)
+        for locale in translation_result.job.target_languages
+    ]
+    provider_label = {
+        "local-ctranslate2": "Local Translation",
+        "openai": "OpenAI Cloud",
+    }.get(translation_result.job.provider_name, translation_result.job.provider_name)
+    lines = ["", "Translation", "--------------------",
+             f"Provider: {provider_label}", "Target languages:"]
+    lines.extend(f"    {target_label}" for target_label in target_labels)
+    lines.extend((
+        f"Succeeded: {exported.success_count}",
+        f"Failed: {exported.failure_count}",
+        f"Review Recommended: {translation_result.review_recommended_count}",
+        "",
+        "Translation Outputs",
+        "--------------------",
+    ))
+    for format_name, paths in exported.paths.items():
+        for path in paths:
+            label = "Translation Review Workbook" if format_name == "excel" else f"Translation {format_name.upper()}"
+            lines.extend((label, f"    {path}"))
+    return "\n".join(lines) + "\n"
+
+
+def _compose_completion_dialog_text(result, translation_result=None) -> str:
+    """Compose the exact single-run text inserted into the live Tk dialog."""
+
+    sections = [
+        _format_completion_dialog_text(format_processing_summary(result)).strip(),
+    ]
+    ocr_quality = _format_ocr_quality_section(
+        result.ocr_confidence_statistics,
+    ).strip()
+    if ocr_quality:
+        sections.append(ocr_quality)
+    if translation_result is not None:
+        sections.append(
+            _format_translation_completion_section(translation_result).strip(),
+        )
+    return "\n\n".join(sections) + "\n"
+
+
+def _translation_source_identity(result) -> str:
+    """Resolve a stable video name for downstream translation artifacts.
+
+    Replay requests name a checkpoint as their source path.  Prefer a top-level
+    canonical OCR export from its originating run, which retains the video stem
+    without turning ``candidate_frames.pkl`` into a workbook name.
+    """
+
+    checkpoint = getattr(result, "resolved_checkpoint_path", None)
+    if checkpoint is not None:
+        source_run = checkpoint.parent.parent if checkpoint.parent.name.lower() == "cache" else checkpoint.parent
+        # Replay directories are deliberately named ``<source>_replay`` with
+        # an optional numeric collision suffix.  When a replay is replayed,
+        # follow those existing sibling directories back to the original OCR
+        # run before choosing its canonical export stem.
+        while source_run.is_dir():
+            marker = source_run.name.rfind("_replay")
+            suffix = source_run.name[marker + len("_replay"):] if marker >= 0 else None
+            if marker < 0 or suffix is None or (suffix and not (suffix.startswith("_") and suffix[1:].isdigit())):
+                break
+            parent_run = source_run.parent / source_run.name[:marker]
+            if not parent_run.is_dir():
+                break
+            source_run = parent_run
+        candidates = sorted(
+            (path for path in source_run.iterdir()
+             if path.is_file() and path.suffix.lower() in {".md", ".csv", ".xlsx"}),
+            key=lambda path: (path.stem.casefold(), path.suffix.casefold()),
+        ) if source_run.is_dir() else []
+        if candidates:
+            return candidates[0].stem
+        name = source_run.name
+        if name:
+            return name
+    return Path(result.source_path).stem
+
+
 def _format_completion_dialog_text(summary: str) -> str:
     """Present shared summary data in readable sections without recomputing it."""
 
@@ -1582,7 +2058,7 @@ def _format_completion_dialog_text(summary: str) -> str:
     if "Output folder" in fields:
         lines.append(fields["Output folder"])
 
-    lines.extend(["", "Exports", "--------------------"])
+    lines.extend(["", "OCR Exports", "--------------------"])
     for label, path in exports:
         lines.extend((label, f"    {path}", ""))
 

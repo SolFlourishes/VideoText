@@ -48,6 +48,13 @@ A formatted workbook for review and translation. Translators can edit the
 Modified Translation and Verified columns while the original reference text
 remains protected.
 
+Translation Outputs
+When optional translation is enabled, Translation Review Workbook, Translation
+CSV, and Translation Markdown are separate from the canonical OCR Outputs.
+Translation files are saved in a translations/ folder beneath the OCR run that
+provided their source text. In Single video mode, one Translation Review
+Workbook contains one worksheet for each selected target locale.
+
 OCR Quality
 
 The completion summary reports how many OCR regions were found and their mean,
@@ -152,6 +159,35 @@ Ongoing benchmarking and validation will continue to expand support and characte
 Practical Recommendation
 
 For presentation-style instructional content, VideoText provides an excellent starting point for documentation and note generation. When complete fidelity is required, review extracted text against the original video.
+"""
+
+
+def get_accessibility_text() -> str:
+    """Return practical accessibility guidance and candid current limitations."""
+
+    return """Accessibility
+
+VideoText is designed with accessibility as a core requirement and keyboard operability in mind. Its design is informed by WCAG 2.2 principles and applicable Section 508 software and electronic-document accessibility requirements. Formal comprehensive conformance testing and a VPAT/ACR are not yet complete.
+
+Keyboard Operation
+
+Use Tab and Shift+Tab to move between controls. Use Space or Enter to activate controls and menus. Dialogs support Escape to cancel or close where appropriate and return focus to the invoking control. The Target locales control opens without a mouse: use Up/Down or Tab to move, Space to select multiple locales, Enter to apply, and Escape to cancel.
+
+Translation Workflow
+
+Translation is optional. Local Translation works without a cloud account or API key. OpenAI Cloud translation requires explicit disclosure and a user-supplied session-only API key. Human-readable provider and locale labels are used throughout. Failed translations remain visible. Review Recommended is a textual attention status, not proof that a translation is wrong; Normal Review does not mean verified. All machine translations require human review.
+
+Accessible Outputs
+
+Translation Review Workbooks use selectable text, meaningful worksheet names, clear headers, logical row and column order, multiline text, and textual Review Status. Modified Translation and Verified remain editable; no translation is automatically verified. Markdown uses semantic headings and textual statuses. CSV preserves Unicode and explicit provenance and status fields. Accessibility can also depend on the application used to open an exported file.
+
+Known Limitations
+
+Comprehensive screen-reader testing is incomplete and behavior may vary by Windows assistive technology. M2M100 local translation does not guarantee regional lexical localization for Spanish — Latin America, Spanish — Spain, or Portuguese — Brazil. Machine translation always requires review.
+
+Feedback
+
+If you encounter an accessibility barrier, please report it through the VideoText issue tracker.
 """
 
 

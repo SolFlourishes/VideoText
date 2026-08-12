@@ -2,7 +2,7 @@
 
 **Project:** VideoText
 
-**Current Release:** Version 1.5.0
+**Current Release:** Version 1.6.0
 
 ---
 
@@ -74,7 +74,7 @@ Every processing stage adds information rather than replacing previous work.
 
 ---
 
-# Current Capabilities (Version 1.5)
+# Current Capabilities (Version 1.6)
 
 ## OCR
 
@@ -128,7 +128,7 @@ Translation Foundation
 
 Introduce translation as a downstream processing stage while preserving verified OCR evidence.
 
-### Planned Features
+### Delivered Features
 
 - Translation abstraction layer
 - Translation provider interface
@@ -138,6 +138,11 @@ Introduce translation as a downstream processing stage while preserving verified
 - Translation stored separately from OCR
 - Translation exports
 - Initial GUI integration
+
+Version 1.6 also delivers Translation Review Workbook/CSV/Markdown outputs,
+deterministic review warnings, OpenAI BYOK preflight and safe error handling,
+an optional external Local Translation Pack, and keyboard/accessibility help.
+OCR remains canonical and all translations require human review.
 
 ---
 

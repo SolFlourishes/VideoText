@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.6.0
+
+### Translation Foundation
+
+### Added
+
+- Optional Local Translation using the separately distributed M2M100 pack,
+  with offline operation and no API key or cloud fallback
+- Optional OpenAI Cloud translation using a user-supplied, session-only API key
+- Multiple target locales and deterministic multi-video/multi-language jobs
+- Evidence-preserving Translation Review Workbooks plus translation CSV and
+  Markdown exports
+- Deterministic review intelligence with Normal Review, Review Recommended,
+  and Translation Failed textual statuses
+- Keyboard-accessible locale selection and dedicated Accessibility Help
+
+### Changed
+
+- Translation artifacts are saved in a `translations/` directory beneath their
+  originating single-video run (or beneath the batch output root)
+- The GUI distinguishes canonical OCR Outputs from Translation Outputs and uses
+  a compact keyboard-accessible target-locale selector
+- Completion summaries present OCR Quality, Translation, and Translation Outputs
+  as separate sections, with human-readable target locale lists
+
+### Notes
+
+- OCR remains canonical; translation is an optional downstream layer and never
+  overwrites OCR evidence.
+- All machine translations require human review and are never automatically
+  marked verified.
+- The local M2M100 runtime uses generic Spanish and Portuguese tokens. VideoText
+  preserves requested locale provenance but does not guarantee regional wording.
+- OpenAI Cloud requires internet access, a user-provided key, and may incur API
+  charges. Video and image data are not sent by the translation provider.
+
 ## 1.5.0
 
 ### Added

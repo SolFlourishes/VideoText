@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *.pyo
 
@@ -19,7 +20,13 @@ paragraph_reconstruction_debug.txt
 # PyInstaller generated build output
 build/
 dist/
+release/
 packaging/VideoText_version.txt
+
+# External Local Translation models and conversion staging
+packaging/local_translation_pack/m2m100-418m-int8/
+*.bin
+*.safetensors
 
 # Sample videos
 sample_videos/
