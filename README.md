@@ -1,6 +1,6 @@
 # VideoText
 
-VideoText 1.6.0 converts presentation and lecture videos into structured,
+VideoText 1.7.0 converts presentation and lecture videos into structured,
 editable OCR text and can optionally create machine-translation review
 artifacts. OCR remains the canonical evidence: translation is downstream,
 never overwrites OCR, and always requires human review.
@@ -12,7 +12,7 @@ reading order and paragraphs, consolidates repeated observations, and exports
 Markdown, CSV, and Excel. Preserved raw OCR evidence supports confidence
 statistics, replay from cached stages, diagnostics, and human review.
 
-Version 1.6 adds optional translation:
+VideoText includes optional translation:
 
 - **Local Translation** uses the separately installed M2M100 Local Translation
   Pack through CTranslate2 and SentencePiece. It works offline and requires no
@@ -28,9 +28,16 @@ OCR run. Deterministic review signals mark items as **Normal Review**, **Review
 Recommended**, or **Translation Failed**; these labels are not confidence
 scores or automatic verification.
 
+Version 1.7 makes the Excel workbook a lightweight human translation-review
+surface. It preserves source OCR and the original AI translation separately,
+while adding editable Verified Translation, Human Review Status, and Reviewer
+Notes fields. Human review states are **Unreviewed**, **Accepted**, **Edited /
+Verified**, and **Flagged**. Translation Failed results cannot be promoted to a
+valid reviewed translation through review metadata.
+
 ## Supported local locales
 
-The optional 1.6 Local Translation Pack supports English source text to:
+The compatible optional Local Translation Pack supports English source text to:
 
 - Portuguese — Brazil (`pt-BR`)
 - Spanish — Latin America (`es-419`)
@@ -45,13 +52,13 @@ OpenAI Cloud, not the current local pack.
 
 ## Download and run
 
-Download `VideoText-1.6.0-Windows-Portable.zip` from the GitHub release, extract
+Download `VideoText-1.7.0-Windows-Portable.zip` from the GitHub release, extract
 the entire archive to a user-writable folder, and run `VideoText.exe`. No
 administrator privileges or installer are required.
 
 VideoText Core works without the Local Translation Pack. To enable offline
 translation, follow the instructions included in
-`VideoText-1.6.0-Local-Translation-Pack.zip` and in the
+the separately published Local Translation Pack and in the
 [Local Translation workflow guide](docs/translation-gui-workflow.md).
 
 ### Running from source

@@ -156,16 +156,27 @@ Translation Review Workflow
 
 Create a human-centered translation workflow.
 
-### Planned Features
+### Delivered Features
 
-- Multiple providers
-- Batch translation
-- Glossaries
-- Preferred terminology
-- Translation notes
-- Re-translation
-- Translation review workspace
-- Translation verification status
+- Separate source OCR, original AI translation, and verified translation layers
+- Human review states: Unreviewed, Accepted, Edited / Verified, and Flagged
+- Reviewer notes and deterministic translation review reasons
+- Filterable Excel review workbook with protected evidence and provenance
+- Central reviewed-translation resolution without promoting failed translations
+- Existing translation grouping modes and CSV/Markdown compatibility
+- Provider switching that removes unsupported locale selections
+
+### Deferred Translation Work
+
+- Reviewed-workbook import and persistent human review tracking
+- Possible use of verified translations as quality-evaluation/reference data
+- Dedicated translation review workspace
+- Batch Translate Existing Results using completed run folders or trusted
+  `reading_order.pkl` checkpoints, skipping OCR across multiple results
+- Re-translation with another language, provider, or model without repeating OCR
+- Broader validated local-language support
+- True offline regional localization, including Canadian English (`en-CA`)
+- Glossaries and preferred terminology
 
 ---
 

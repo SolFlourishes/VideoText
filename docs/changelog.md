@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.7.0
+
+### Translation Review
+
+### Added
+
+- Human review states: Unreviewed, Accepted, Edited / Verified, and Flagged
+- Separate Verified Translation and Reviewer Notes fields without replacing
+  source OCR or the original AI translation
+- An 11-column Excel review table with editable human-review fields, protected
+  evidence/provenance fields, filtering, and data validation
+- Central reviewed-translation resolution that uses a valid human edit only for
+  Edited / Verified results; Translation Failed remains failed
+
+### Changed
+
+- Translation Review Workbooks expose source OCR, original AI translation,
+  verified translation, human and automated review states, review reasons,
+  notes, target language, provider, and model
+- Provider changes now deselect unsupported target locales while preserving
+  selections valid for the newly selected provider
+
+### Compatibility and limitations
+
+- Normal Review, Review Recommended, Translation Failed, their observable
+  warning reasons, and all existing workbook grouping modes remain supported.
+- Review signals prioritize inspection; they are not calibrated translation
+  confidence and do not establish correctness.
+- OCR workflows and existing CSV/Markdown translation behavior remain
+  compatible. Local/cloud provider architecture is unchanged.
+- Reviewed-workbook import, persistent review projects, a dedicated review GUI,
+  and batch translation of existing OCR results remain future work.
+- The local M2M100 model uses generic language tokens and does not guarantee
+  regional localization.
+
 ## 1.6.0
 
 ### Translation Foundation
