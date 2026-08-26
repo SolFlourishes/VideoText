@@ -1,6 +1,7 @@
 """Focused tests for shared full and resumed VideoText processing."""
 
 import inspect
+from contextlib import ExitStack
 from dataclasses import replace
 import pickle
 import sys
@@ -15,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 import gui
 import main
 import processing_service
-from models import Presentation
+from models import CandidateFrame, Presentation, TextParagraph, TextType
 from ocr_diagnostics import DiagnosticError, DiagnosticOptions
 from processing_service import (
     CheckpointLoadError,
@@ -23,6 +24,7 @@ from processing_service import (
     ProcessingMode,
     ProcessingRequest,
     process_request,
+    reconstruct_presentation_from_reading_order,
     resolve_checkpoint_path,
 )
 
@@ -47,6 +49,15 @@ class ProcessingServiceTests(unittest.TestCase):
             source_path=str(source),
             output_directory=self.output_root,
             formats=["markdown"],
+        )
+
+    def reading_order_frame(self, text: str = "Preserved paragraph") -> CandidateFrame:
+        return CandidateFrame(
+            frame_number=12,
+            timestamp=2.5,
+            image=None,
+            difference_score=0.0,
+            text_paragraphs=[TextParagraph(text, text_type=TextType.BODY)],
         )
 
     def resume_patches(self):
@@ -162,6 +173,90 @@ class ProcessingServiceTests(unittest.TestCase):
             resolve_checkpoint_path(ProcessingMode.OCR_RESULTS, checkpoint.parent.parent),
             checkpoint,
         )
+
+    def test_read_only_reconstruction_accepts_completed_run_directory(self):
+        checkpoint = self.checkpoint(
+            "reading_order.pkl",
+            [self.reading_order_frame("Expected slide paragraph")],
+        )
+
+        resolved, presentation = reconstruct_presentation_from_reading_order(
+            checkpoint.parent.parent
+        )
+
+        self.assertEqual(checkpoint, resolved)
+        self.assertEqual("Expected slide paragraph", presentation.slides[0].paragraphs[0].text)
+        self.assertEqual(str(checkpoint), presentation.metadata["source_checkpoint"])
+        self.assertEqual(ProcessingMode.READING_ORDER.value, presentation.metadata["processing_mode"])
+        self.assertEqual(checkpoint, presentation.metadata["resolved_checkpoint_path"])
+
+    def test_read_only_reconstruction_accepts_direct_checkpoint_path(self):
+        checkpoint = self.checkpoint(
+            "reading_order.pkl",
+            [self.reading_order_frame("Direct checkpoint paragraph")],
+        )
+
+        resolved, presentation = reconstruct_presentation_from_reading_order(checkpoint)
+
+        self.assertEqual(checkpoint, resolved)
+        self.assertEqual("Direct checkpoint paragraph", presentation.slides[0].paragraphs[0].text)
+
+    def test_read_only_reconstruction_missing_cache_preserves_validation_error(self):
+        completed_run = self.root / "missing"
+        completed_run.mkdir()
+
+        with self.assertRaisesRegex(
+            CheckpointValidationError,
+            "reading order.*reading_order.pkl.*absent",
+        ):
+            reconstruct_presentation_from_reading_order(completed_run)
+
+    def test_read_only_reconstruction_corrupted_cache_preserves_load_error(self):
+        checkpoint = self.root / "corrupted" / "cache" / "reading_order.pkl"
+        checkpoint.parent.mkdir(parents=True)
+        checkpoint.write_bytes(b"not a pickle")
+
+        with self.assertRaisesRegex(
+            CheckpointLoadError,
+            "reading order.*could not be loaded",
+        ):
+            reconstruct_presentation_from_reading_order(checkpoint)
+
+    def test_read_only_reconstruction_rejects_structurally_incompatible_cache(self):
+        checkpoint = self.checkpoint("reading_order.pkl", {"unexpected": "data"})
+
+        with self.assertRaisesRegex(
+            CheckpointLoadError,
+            "contains incompatible data.*Expected a list of CandidateFrame",
+        ):
+            reconstruct_presentation_from_reading_order(checkpoint)
+
+    def test_read_only_reconstruction_preserves_source_and_creates_nothing(self):
+        checkpoint = self.checkpoint(
+            "reading_order.pkl",
+            [self.reading_order_frame()],
+        )
+        original_bytes = checkpoint.read_bytes()
+        paths_before = {path.relative_to(self.root) for path in self.root.rglob("*")}
+
+        prohibited = (
+            "process_request", "create_replay_run_directory", "save_cache",
+            "export_all", "resolve_video_source", "open_video", "analyze_video",
+            "perform_ocr", "reconstruct_reading_order",
+        )
+        with ExitStack() as stack:
+            for name in prohibited:
+                stack.enter_context(
+                    patch.object(processing_service, name, side_effect=AssertionError(name))
+                )
+            resolved, presentation = reconstruct_presentation_from_reading_order(
+                checkpoint.parent.parent
+            )
+
+        self.assertEqual(checkpoint, resolved)
+        self.assertIsInstance(presentation, Presentation)
+        self.assertEqual(original_bytes, checkpoint.read_bytes())
+        self.assertEqual(paths_before, {path.relative_to(self.root) for path in self.root.rglob("*")})
 
     def test_missing_checkpoint_has_clear_validation_error(self):
         missing_run = self.root / "missing_run"

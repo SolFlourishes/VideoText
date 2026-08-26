@@ -8,7 +8,7 @@ from time import monotonic
 
 from cache_manager import load_cache, save_cache
 from export_manager import export_all
-from models import Presentation, ensure_raw_ocr_results
+from models import CandidateFrame, Presentation, ensure_raw_ocr_results
 from ocr_confidence_stats import (
     DocumentOCRConfidenceStats,
     calculate_document_ocr_confidence_stats,
@@ -457,6 +457,45 @@ def _normalize_raw_ocr_evidence(candidate_frames) -> None:
 
     for frame in candidate_frames:
         ensure_raw_ocr_results(frame)
+
+
+def reconstruct_presentation_from_reading_order(
+    source_path: str | Path,
+) -> tuple[Path, Presentation]:
+    """Load trusted reading-order evidence and reconstruct it without writes.
+
+    ``source_path`` may be the exact ``reading_order.pkl`` file or a completed
+    run directory containing ``cache/reading_order.pkl``.  The returned path is
+    the exact resolved checkpoint so downstream consumers can retain explicit
+    evidence provenance.
+    """
+
+    checkpoint_path, candidate_frames = _load_checkpoint(
+        ProcessingMode.READING_ORDER,
+        str(source_path),
+    )
+    if not isinstance(candidate_frames, list) or any(
+        not isinstance(frame, CandidateFrame) for frame in candidate_frames
+    ):
+        raise CheckpointLoadError(
+            "Reading-order checkpoint contains incompatible data: "
+            f"{checkpoint_path}. Expected a list of CandidateFrame values."
+        )
+
+    try:
+        _normalize_raw_ocr_evidence(candidate_frames)
+        presentation = _create_presentation(candidate_frames, {
+            "source_checkpoint": str(checkpoint_path),
+            "processing_mode": ProcessingMode.READING_ORDER.value,
+            "resolved_checkpoint_path": checkpoint_path,
+        })
+    except (AttributeError, IndexError, TypeError, ValueError) as error:
+        raise CheckpointLoadError(
+            "Reading-order checkpoint could not be reconstructed from compatible data: "
+            f"{checkpoint_path}. {type(error).__name__}: {error}"
+        ) from error
+
+    return checkpoint_path, presentation
 
 
 def _finish_run(
