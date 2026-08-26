@@ -32,6 +32,16 @@ class Variable:
         self.value = value
 
 
+class Widget:
+    """Small configurable-widget stand-in for provider callback tests."""
+
+    def __init__(self):
+        self.options = {}
+
+    def configure(self, **options):
+        self.options.update(options)
+
+
 class TranslationGUIWorkflowTests(unittest.TestCase):
     def test_locale_arrow_navigation_wraps_selectable_controls(self):
         self.assertEqual(2, gui._next_locale_control_index(0, 3, -1))
@@ -40,7 +50,7 @@ class TranslationGUIWorkflowTests(unittest.TestCase):
             gui._next_locale_control_index(0, 0, 1)
 
     def make_configuration_app(self, mode="single", provider="local"):
-        return SimpleNamespace(
+        app = SimpleNamespace(
             translation_enabled=Variable(True),
             translation_languages={"es-419": Variable(True), "nl-NL": Variable(True)},
             translation_provider=Variable(provider),
@@ -53,6 +63,30 @@ class TranslationGUIWorkflowTests(unittest.TestCase):
             translation_model=Variable("Recommended"),
             _set_status=lambda _message: self.fail("configuration should be valid"),
         )
+        app._available_translation_targets = lambda: gui.VideoTextApp._available_translation_targets(app)
+        return app
+
+    def make_provider_switch_app(self, provider="openai", **selected):
+        languages = {
+            "en-CA": Variable(selected.get("en-CA", False)),
+            "pt-BR": Variable(selected.get("pt-BR", False)),
+            "es-419": Variable(selected.get("es-419", False)),
+        }
+        app = SimpleNamespace(
+            translation_provider=Variable(provider),
+            translation_languages=languages,
+            translation_enabled=Variable(True),
+            translation_model_selector=Widget(),
+            translation_provider_detail=Widget(),
+            translation_locale_summary=Variable(""),
+            local_translation_availability=SimpleNamespace(
+                installed_pairs=(("en", "pt-BR"), ("en", "es-419")),
+            ),
+        )
+        app._available_translation_targets = lambda: gui.VideoTextApp._available_translation_targets(app)
+        app._discard_unavailable_translation_targets = lambda: gui.VideoTextApp._discard_unavailable_translation_targets(app)
+        app._update_translation_summary = lambda: gui.VideoTextApp._update_translation_summary(app)
+        return app
 
     def test_single_mode_forces_one_workbook_per_video(self):
         app = self.make_configuration_app()
@@ -98,6 +132,54 @@ class TranslationGUIWorkflowTests(unittest.TestCase):
         self.assertEqual({"en-CA", "es-419"}, gui.VideoTextApp._available_translation_targets(app))
         app.translation_provider.set("local")
         self.assertEqual({"es-419"}, gui.VideoTextApp._available_translation_targets(app))
+
+    def test_switching_openai_english_canada_to_local_deselects_it(self):
+        app = self.make_provider_switch_app(**{"en-CA": True})
+
+        app.translation_provider.set("local")
+        with patch.object(gui, "TRANSLATION_TARGET_LOCALES", (
+            ("en-CA", "English — Canada"),
+            ("pt-BR", "Portuguese — Brazil"),
+            ("es-419", "Spanish — Latin America"),
+        )):
+            gui.VideoTextApp._update_translation_provider_view(app)
+
+        self.assertFalse(app.translation_languages["en-CA"].get())
+        self.assertEqual("disabled", app.translation_model_selector.options["state"])
+        self.assertEqual("Choose target locales…", app.translation_locale_summary.get())
+
+    def test_switching_to_local_preserves_supported_selection(self):
+        app = self.make_provider_switch_app(**{"en-CA": True, "pt-BR": True})
+
+        app.translation_provider.set("local")
+        gui.VideoTextApp._discard_unavailable_translation_targets(app)
+
+        self.assertFalse(app.translation_languages["en-CA"].get())
+        self.assertTrue(app.translation_languages["pt-BR"].get())
+
+    def test_switching_back_to_openai_restores_availability_without_reselection(self):
+        app = self.make_provider_switch_app(**{"en-CA": True, "pt-BR": True})
+        app.translation_provider.set("local")
+        gui.VideoTextApp._discard_unavailable_translation_targets(app)
+
+        app.translation_provider.set("openai")
+        discarded = gui.VideoTextApp._discard_unavailable_translation_targets(app)
+
+        self.assertEqual((), discarded)
+        self.assertIn("en-CA", gui.VideoTextApp._available_translation_targets(app))
+        self.assertFalse(app.translation_languages["en-CA"].get())
+        self.assertTrue(app.translation_languages["pt-BR"].get())
+
+    def test_unavailable_local_target_cannot_reach_configuration(self):
+        statuses = []
+        app = self.make_configuration_app(provider="local")
+        app.translation_languages = {"en-CA": Variable(True), "pt-BR": Variable(False)}
+        app._set_status = statuses.append
+
+        configuration = gui.VideoTextApp._translation_configuration(app)
+
+        self.assertFalse(configuration)
+        self.assertEqual("Selected target language is unavailable for this translation provider.", statuses[-1])
 
     def test_local_provider_is_not_constructed_when_ocr_processing_fails(self):
         app = object.__new__(gui.VideoTextApp)

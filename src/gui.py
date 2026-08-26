@@ -763,9 +763,10 @@ class VideoTextApp(ttk.Frame):
         self._update_translation_provider_view()
 
     def _update_translation_provider_view(self) -> None:
-        """Reflect local availability without silently altering selected locales."""
+        """Reflect provider availability and discard selections it cannot use."""
 
         local = self.translation_provider.get() == "local"
+        self._discard_unavailable_translation_targets()
         self.translation_model_selector.configure(state="disabled" if local else
                                                  ("readonly" if self.translation_enabled.get() else "disabled"))
         self.translation_provider_detail.configure(
@@ -779,6 +780,17 @@ class VideoTextApp(ttk.Frame):
             return set(self.translation_languages)
         return {target for source, target in self.local_translation_availability.installed_pairs
                 if source in {"en", "en-US"}}
+
+    def _discard_unavailable_translation_targets(self) -> tuple[str, ...]:
+        """Deselect targets unsupported by the active provider, preserving valid choices."""
+
+        available = self._available_translation_targets()
+        discarded = []
+        for code, variable in self.translation_languages.items():
+            if variable.get() and code not in available:
+                variable.set(False)
+                discarded.append(code)
+        return tuple(discarded)
 
     def _update_translation_summary(self) -> None:
         """Summarize compact locale state without hiding unavailable selections."""
@@ -890,15 +902,14 @@ class VideoTextApp(ttk.Frame):
         if provider_name not in {"openai", "local"}:
             self._set_status("Select an available translation provider.")
             return False
+        if any(language not in self._available_translation_targets() for language in languages):
+            self._set_status("Selected target language is unavailable for this translation provider.")
+            return False
         formats = tuple(name for name, variable in self.translation_formats.items() if variable.get())
         if not formats:
             self._set_status("Select at least one translation output format.")
             return False
         if provider_name == "local":
-            installed = {target for source, target in self.local_translation_availability.installed_pairs if source == "en"}
-            if any(language not in installed for language in languages):
-                self._set_status("Local translation model not installed for this language pair.")
-                return False
             grouping = (
                 TranslationOutputGrouping.BY_SOURCE
                 if self.run_mode.get() == "single"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import replace
 from pathlib import Path
 import sys
 import tempfile
@@ -18,6 +19,8 @@ from translation_export import (build_translation_export_records, export_transla
     export_translation_markdown, export_translation_outputs)
 from translation_job import TranslationJob, TranslationOutputGrouping, TranslationOutputPlan, TranslationSourceItem
 from translation_output_plan import plan_translation_output
+from translation_review import (HumanTranslationReview, HumanTranslationReviewStatus,
+    TranslationReviewStatus)
 from translation_workbook import TranslationWorkbookRow
 
 
@@ -47,6 +50,71 @@ def evidence(failed: bool = True):
 
 
 class TranslationExportTests(unittest.TestCase):
+    def test_human_review_preserves_ocr_ai_assessment_and_provenance_layers(self) -> None:
+        current, rows, results = evidence(failed=False)
+        record = build_translation_export_records(current, rows, results)[0]
+        self.assertEqual(HumanTranslationReviewStatus.UNREVIEWED, record.human_review.status)
+        self.assertIsNone(record.human_verified_translation)
+        self.assertEqual(record.initial_ai_translation, record.reviewed_translation)
+
+        accepted = replace(record, human_review=HumanTranslationReview(
+            record.request_id, HumanTranslationReviewStatus.ACCEPTED))
+        self.assertEqual(record.initial_ai_translation, accepted.human_verified_translation)
+        self.assertEqual(record.initial_ai_translation, accepted.reviewed_translation)
+
+        edited_text = "Traducción revisada por una persona"
+        edited = replace(record, human_review=HumanTranslationReview(
+            record.request_id, HumanTranslationReviewStatus.EDITED_VERIFIED, edited_text))
+        self.assertEqual(edited_text, edited.human_verified_translation)
+        self.assertEqual(edited_text, edited.reviewed_translation)
+        self.assertEqual(record.original_text, edited.original_text)
+        self.assertEqual(record.initial_ai_translation, edited.initial_ai_translation)
+        self.assertEqual(record.provider_id, edited.provider_id)
+        self.assertEqual(record.model_id, edited.model_id)
+        self.assertEqual(record.source_reference, edited.source_reference)
+        self.assertEqual(record.review_assessment, edited.review_assessment)
+
+        flagged = replace(record, human_review=HumanTranslationReview(
+            record.request_id, HumanTranslationReviewStatus.FLAGGED,
+            reviewer_notes="Terminology needs review"))
+        self.assertEqual(record.initial_ai_translation, flagged.reviewed_translation)
+        self.assertIsNone(flagged.human_verified_translation)
+        self.assertEqual(HumanTranslationReviewStatus.FLAGGED, flagged.human_review.status)
+
+    def test_human_review_identity_and_failed_resolution_are_safe(self) -> None:
+        current, rows, results = evidence()
+        records = build_translation_export_records(current, rows, results)
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            replace(records[0], human_review=HumanTranslationReview("different-request"))
+        failed = replace(records[-1], human_review=HumanTranslationReview(
+            records[-1].request_id, HumanTranslationReviewStatus.EDITED_VERIFIED,
+            "Human text must not promote a provider failure"))
+        self.assertIsNone(failed.reviewed_translation)
+        self.assertIsNone(failed.human_verified_translation)
+        self.assertEqual(TranslationStatus.FAILURE, failed.translation_status)
+
+    def test_existing_exports_ignore_new_human_review_until_layout_work(self) -> None:
+        current, rows, results = evidence(failed=False)
+        record = build_translation_export_records(current, rows, results)[0]
+        edited = replace(record, human_review=HumanTranslationReview(
+            record.request_id, HumanTranslationReviewStatus.EDITED_VERIFIED, "Human revision"))
+        with tempfile.TemporaryDirectory() as directory:
+            original_path = export_translation_csv((record,), Path(directory) / "original.csv")
+            edited_path = export_translation_csv((edited,), Path(directory) / "edited.csv")
+            self.assertEqual(
+                original_path.read_text(encoding="utf-8"),
+                edited_path.read_text(encoding="utf-8"),
+            )
+            original_markdown = export_translation_markdown(
+                (record,), Path(directory) / "original.md")
+            edited_markdown = export_translation_markdown(
+                (edited,), Path(directory) / "edited.md")
+            self.assertEqual(
+                original_markdown.read_text(encoding="utf-8"),
+                edited_markdown.read_text(encoding="utf-8"),
+            )
+        self.assertEqual(TranslationReviewStatus.NORMAL_REVIEW, edited.review_assessment.status)
+
     def test_projection_preserves_exact_evidence_and_failure_has_no_fabricated_translation(self) -> None:
         current, rows, results = evidence()
         records = build_translation_export_records(current, rows, results)
@@ -96,9 +164,10 @@ class TranslationExportTests(unittest.TestCase):
             self.assertEqual(4, summary.record_count); self.assertEqual(3, summary.success_count); self.assertEqual(1, summary.failure_count)
             self.assertEqual(1, len(summary.paths["excel"]))
             workbook = load_workbook(summary.paths["excel"][0])
-            self.assertEqual(["Slide", "Original Text", "Initial AI Translation", "Modified Translation", "Verified"],
+            self.assertEqual(["Slide", "Source OCR Text", "Original AI Translation", "Verified Translation",
+                              "Human Review Status"],
                 [workbook["Video A - Spanish"].cell(10, column).value for column in range(1, 6)])
-            self.assertEqual("Review Status", workbook["Video A - Spanish"].cell(10, 6).value)
+            self.assertEqual("Translation Review Status", workbook["Video A - Spanish"].cell(10, 6).value)
             with self.assertRaisesRegex(FileExistsError, "already exists"):
                 export_translation_outputs(current, layout, rows, results, directory, ("csv",))
 

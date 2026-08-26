@@ -37,6 +37,15 @@ class TranslationReviewStatus(Enum):
     TRANSLATION_FAILED = "translation_failed"
 
 
+class HumanTranslationReviewStatus(Enum):
+    """Explicit human disposition, separate from automated review priority."""
+
+    UNREVIEWED = "unreviewed"
+    ACCEPTED = "accepted"
+    EDITED_VERIFIED = "edited_verified"
+    FLAGGED = "flagged"
+
+
 class TranslationReviewWarningCode(Enum):
     """Stable identifiers for observable review-warning signals."""
 
@@ -53,6 +62,17 @@ def review_status_display(status: TranslationReviewStatus) -> str:
         TranslationReviewStatus.NORMAL_REVIEW: "Normal Review",
         TranslationReviewStatus.REVIEW_RECOMMENDED: "Review Recommended",
         TranslationReviewStatus.TRANSLATION_FAILED: "Translation Failed",
+    }[status]
+
+
+def human_review_status_display(status: HumanTranslationReviewStatus) -> str:
+    """Return the stable human-facing label for a human review disposition."""
+
+    return {
+        HumanTranslationReviewStatus.UNREVIEWED: "Unreviewed",
+        HumanTranslationReviewStatus.ACCEPTED: "Accepted",
+        HumanTranslationReviewStatus.EDITED_VERIFIED: "Edited / Verified",
+        HumanTranslationReviewStatus.FLAGGED: "Flagged",
     }[status]
 
 
@@ -104,6 +124,71 @@ class TranslationReviewAssessment:
             raise ValueError("normal review assessments cannot contain warnings.")
         if self.status is TranslationReviewStatus.TRANSLATION_FAILED and codes != (TranslationReviewWarningCode.TRANSLATION_FAILED,):
             raise ValueError("failed assessments require only the translation_failed warning.")
+
+
+@dataclass(frozen=True)
+class HumanTranslationReview:
+    """Immutable human review evidence that never replaces provider output."""
+
+    request_id: str
+    status: HumanTranslationReviewStatus = HumanTranslationReviewStatus.UNREVIEWED
+    verified_translation: str | None = None
+    reviewer_notes: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.request_id, str) or not self.request_id.strip():
+            raise ValueError("request_id is required.")
+        if not isinstance(self.status, HumanTranslationReviewStatus):
+            raise ValueError("status must be a HumanTranslationReviewStatus.")
+        if self.status is HumanTranslationReviewStatus.EDITED_VERIFIED:
+            if not isinstance(self.verified_translation, str) or not self.verified_translation.strip():
+                raise ValueError("Edited / Verified reviews require verified_translation.")
+        elif self.verified_translation is not None:
+            raise ValueError("verified_translation is only valid for Edited / Verified reviews.")
+        if self.reviewer_notes is not None and not isinstance(self.reviewer_notes, str):
+            raise ValueError("reviewer_notes must be text when supplied.")
+
+
+@dataclass(frozen=True)
+class ReviewedTranslationResolution:
+    """One resolved output decision without changing any underlying evidence."""
+
+    request_id: str
+    human_review_status: HumanTranslationReviewStatus
+    translation_status: TranslationStatus
+    output_text: str | None
+    human_verified: bool
+
+
+def resolve_reviewed_translation(
+        translation_status: TranslationStatus,
+        original_ai_translation: str | None,
+        human_review: HumanTranslationReview) -> ReviewedTranslationResolution:
+    """Resolve reviewed output centrally while preserving OCR and provider text."""
+
+    if not isinstance(translation_status, TranslationStatus):
+        raise ValueError("translation_status must be a TranslationStatus.")
+    if not isinstance(human_review, HumanTranslationReview):
+        raise ValueError("human_review must be a HumanTranslationReview.")
+    if translation_status is TranslationStatus.SUCCESS:
+        if not isinstance(original_ai_translation, str) or not original_ai_translation.strip():
+            raise ValueError("Successful resolution requires original_ai_translation.")
+    elif original_ai_translation is not None:
+        raise ValueError("Failed resolution cannot contain original_ai_translation.")
+    if translation_status is TranslationStatus.FAILURE:
+        return ReviewedTranslationResolution(
+            human_review.request_id, human_review.status, translation_status, None, False)
+    if human_review.status is HumanTranslationReviewStatus.EDITED_VERIFIED:
+        return ReviewedTranslationResolution(
+            human_review.request_id, human_review.status, translation_status,
+            human_review.verified_translation, True)
+    if human_review.status is HumanTranslationReviewStatus.ACCEPTED:
+        return ReviewedTranslationResolution(
+            human_review.request_id, human_review.status, translation_status,
+            original_ai_translation, True)
+    return ReviewedTranslationResolution(
+        human_review.request_id, human_review.status, translation_status,
+        original_ai_translation, False)
 
 
 def _words(text: str) -> tuple[str, ...]:
