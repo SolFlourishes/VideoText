@@ -22,6 +22,11 @@ from help_content import (
     get_accessibility_text,
     get_how_to_use_text,
 )
+from existing_results_translation import (
+    ExistingResultsTranslationPreparation,
+    prepare_existing_results_translation,
+    run_existing_results_translation,
+)
 from batch_processing import (
     BatchProcessingRequest,
     BatchProgress,
@@ -83,6 +88,33 @@ def _next_locale_control_index(current_index: int, control_count: int, direction
     return (current_index + direction) % control_count
 
 
+def _available_translation_targets_for(
+    provider_name: str,
+    language_codes,
+    local_availability,
+) -> set[str]:
+    """Return target locales usable by one provider without depending on Tk state."""
+
+    if provider_name != "local":
+        return set(language_codes)
+    return {
+        target
+        for source, target in local_availability.installed_pairs
+        if source in {"en", "en-US"}
+    }
+
+
+def _discard_unavailable_targets(language_variables, available: set[str]) -> tuple[str, ...]:
+    """Clear invalid selections while retaining their deterministic catalog order."""
+
+    discarded = []
+    for code, variable in language_variables.items():
+        if variable.get() and code not in available:
+            variable.set(False)
+            discarded.append(code)
+    return tuple(discarded)
+
+
 class VideoTextApp(ttk.Frame):
     """Top-level layout and placeholder interactions for VideoText."""
 
@@ -91,6 +123,7 @@ class VideoTextApp(ttk.Frame):
         self.master = master
         self.preferences = load_preferences()
         self.preferences_dialog: tk.Toplevel | None = None
+        self.existing_results_dialog: tk.Toplevel | None = None
         self.video_path = tk.StringVar()
         self.video_source_type = tk.StringVar(value="local")
         self.run_mode = tk.StringVar(value="single")
@@ -151,6 +184,11 @@ class VideoTextApp(ttk.Frame):
             menu=self.recent_sources_menu,
         )
         file_menu.add_command(label="Clear Recent Sources", command=self._clear_recent_sources)
+        file_menu.add_separator()
+        file_menu.add_command(
+            label="Batch Translate Existing Results...",
+            command=self._show_existing_results_translation,
+        )
         menu_bar.add_cascade(label="File", underline=0, menu=file_menu)
         edit_menu = tk.Menu(menu_bar, tearoff=False)
         edit_menu.add_command(label="Preferences...", command=self._show_preferences)
@@ -308,8 +346,26 @@ class VideoTextApp(ttk.Frame):
         self._add_batch_button("Add Folder...", self._add_batch_folder, 1, 1)
         self._add_batch_button("Remove Selected", self._remove_selected_batch_video, 1, 2)
         self._add_batch_button("Clear List", self._clear_batch_list, 1, 3)
+        ttk.Separator(self.batch_frame, orient="horizontal").grid(
+            row=2, column=0, columnspan=4, sticky="ew", pady=(10, 6),
+        )
+        self.existing_results_batch_help = ttk.Label(
+            self.batch_frame,
+            text="Translate previously processed VideoText results without rerunning OCR.",
+        )
+        self.existing_results_batch_help.grid(
+            row=3, column=0, columnspan=4, sticky="w", pady=(0, 4),
+        )
+        self.existing_results_batch_button = ttk.Button(
+            self.batch_frame,
+            text="Translate Existing Results...",
+            command=self._show_existing_results_translation,
+        )
+        self.existing_results_batch_button.grid(
+            row=4, column=0, columnspan=4, sticky="w", pady=(0, 8),
+        )
         self.batch_excel_frame = ttk.LabelFrame(self.batch_frame, text="Excel output", padding=6)
-        self.batch_excel_frame.grid(row=2, column=0, columnspan=4, sticky="w")
+        self.batch_excel_frame.grid(row=5, column=0, columnspan=4, sticky="w")
         per_video_excel = ttk.Radiobutton(
             self.batch_excel_frame,
             text="One workbook per video",
@@ -776,21 +832,19 @@ class VideoTextApp(ttk.Frame):
     def _available_translation_targets(self) -> set[str]:
         """Return the exact target locales usable by the selected provider."""
 
-        if self.translation_provider.get() != "local":
-            return set(self.translation_languages)
-        return {target for source, target in self.local_translation_availability.installed_pairs
-                if source in {"en", "en-US"}}
+        return _available_translation_targets_for(
+            self.translation_provider.get(),
+            self.translation_languages,
+            self.local_translation_availability,
+        )
 
     def _discard_unavailable_translation_targets(self) -> tuple[str, ...]:
         """Deselect targets unsupported by the active provider, preserving valid choices."""
 
-        available = self._available_translation_targets()
-        discarded = []
-        for code, variable in self.translation_languages.items():
-            if variable.get() and code not in available:
-                variable.set(False)
-                discarded.append(code)
-        return tuple(discarded)
+        return _discard_unavailable_targets(
+            self.translation_languages,
+            self._available_translation_targets(),
+        )
 
     def _update_translation_summary(self) -> None:
         """Summarize compact locale state without hiding unavailable selections."""
@@ -1231,6 +1285,492 @@ class VideoTextApp(ttk.Frame):
         """Open keyboard guidance and current accessibility limitations."""
         self._show_help_dialog("Accessibility", get_accessibility_text())
 
+    def _show_existing_results_translation(self) -> None:
+        """Open the independent completed-results translation workflow."""
+
+        if self.existing_results_dialog is not None and self.existing_results_dialog.winfo_exists():
+            self.existing_results_dialog.lift()
+            self.existing_results_dialog.focus_set()
+            return
+
+        dialog = tk.Toplevel(self.master)
+        self.existing_results_dialog = dialog
+        dialog.title("Batch Translate Existing Results")
+        dialog.transient(self.master)
+        dialog.minsize(700, 650)
+        dialog.columnconfigure(0, weight=1)
+        dialog.rowconfigure(1, weight=1)
+        _center_dialog(dialog, self.master, preferred_width=760, preferred_height=720)
+
+        self.existing_result_paths = []
+        self.existing_output_root = tk.StringVar()
+        self.existing_provider = tk.StringVar(
+            value="local" if self.local_translation_availability.installed_models else "openai"
+        )
+        self.existing_model = tk.StringVar(value=RECOMMENDED_OPENAI_MODEL_LABEL)
+        self.existing_grouping = tk.StringVar(value=TranslationOutputGrouping.BY_SOURCE.value)
+        self.existing_languages = {
+            code: tk.BooleanVar(value=False) for code, _label in TRANSLATION_TARGET_LOCALES
+        }
+        self.existing_formats = {
+            "excel": tk.BooleanVar(value=True),
+            "csv": tk.BooleanVar(value=False),
+            "markdown": tk.BooleanVar(value=False),
+        }
+        self.existing_locale_summary = tk.StringVar(value="Choose target locales…")
+        self.existing_status = tk.StringVar(value="Select completed result folders and an output folder.")
+        self.existing_controls = []
+
+        ttk.Label(
+            dialog,
+            text=("Only select completed VideoText results you trust. Reading-order cache "
+                  "files are intended for reuse from your own trusted VideoText runs."),
+            wraplength=700,
+        ).grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 8))
+
+        selection_frame = ttk.LabelFrame(
+            dialog, text="Completed VideoText Result Folders", padding=8,
+        )
+        selection_frame.grid(row=1, column=0, sticky="nsew", padx=12, pady=4)
+        selection_frame.columnconfigure(0, weight=1)
+        selection_frame.rowconfigure(0, weight=1)
+        self.existing_results_listbox = tk.Listbox(selection_frame, height=6, exportselection=False)
+        self.existing_results_listbox.grid(row=0, column=0, columnspan=3, sticky="nsew")
+        for column, (label, command) in enumerate((
+            ("Add Result Folder", self._add_existing_result_folder),
+            ("Remove Selected", self._remove_selected_existing_result),
+            ("Clear", self._clear_existing_results),
+        )):
+            button = ttk.Button(selection_frame, text=label, command=command)
+            button.grid(row=1, column=column, sticky="w", padx=(0, 8), pady=(8, 0))
+            self.existing_controls.append(button)
+
+        output_frame = ttk.Frame(dialog)
+        output_frame.grid(row=2, column=0, sticky="ew", padx=12, pady=4)
+        output_frame.columnconfigure(1, weight=1)
+        ttk.Label(output_frame, text="Output folder").grid(row=0, column=0, sticky="w", padx=(0, 8))
+        ttk.Entry(output_frame, textvariable=self.existing_output_root).grid(row=0, column=1, sticky="ew")
+        output_button = ttk.Button(output_frame, text="Browse...", command=self._browse_existing_output_root)
+        output_button.grid(row=0, column=2, padx=(8, 0))
+        self.existing_controls.append(output_button)
+
+        settings = ttk.LabelFrame(dialog, text="Translation Settings", padding=8)
+        settings.grid(row=3, column=0, sticky="ew", padx=12, pady=4)
+        ttk.Label(settings, text="Provider").grid(row=0, column=0, sticky="w")
+        for row, (label, value) in enumerate((
+            ("OpenAI Cloud — Uses your OpenAI API key", "openai"),
+            ("Local Translation — Offline, no API key required", "local"),
+        ), start=1):
+            state = "normal" if value != "local" or self.local_translation_availability.installed_models else "disabled"
+            control = ttk.Radiobutton(
+                settings, text=label, value=value, variable=self.existing_provider,
+                state=state, command=self._update_existing_provider_view,
+            )
+            control.grid(row=row, column=0, columnspan=3, sticky="w")
+            self.existing_controls.append(control)
+            if value == "local":
+                self.existing_local_provider_control = control
+        ttk.Label(settings, text="Model").grid(row=3, column=0, sticky="w", pady=(6, 0))
+        self.existing_model_selector = ttk.Combobox(
+            settings, textvariable=self.existing_model,
+            values=tuple(label for label, _model in VETTED_OPENAI_TRANSLATION_MODELS),
+            state="readonly", width=32,
+        )
+        self.existing_model_selector.grid(row=3, column=1, sticky="w", pady=(6, 0))
+        self.existing_controls.append(self.existing_model_selector)
+        ttk.Label(settings, text="Target locales").grid(row=4, column=0, sticky="w", pady=(6, 0))
+        locale_button = ttk.Button(
+            settings, textvariable=self.existing_locale_summary,
+            command=self._show_existing_locale_selector,
+        )
+        locale_button.grid(row=4, column=1, columnspan=2, sticky="w", pady=(6, 0))
+        self.existing_controls.append(locale_button)
+        ttk.Label(settings, text="Workbook organization").grid(row=5, column=0, sticky="nw", pady=(6, 0))
+        grouping_frame = ttk.Frame(settings)
+        grouping_frame.grid(row=5, column=1, columnspan=2, sticky="w", pady=(6, 0))
+        for index, (label, value) in enumerate((
+            ("One workbook per language", "by_language"),
+            ("One workbook per result", "by_source"),
+            ("One combined workbook", "combined"),
+            ("Separate workbook per result/language", "separate"),
+        )):
+            control = ttk.Radiobutton(grouping_frame, text=label, value=value, variable=self.existing_grouping)
+            control.grid(row=index // 2, column=index % 2, sticky="w", padx=(0, 12))
+            self.existing_controls.append(control)
+        outputs = ttk.LabelFrame(settings, text="Translation Outputs", padding=6)
+        outputs.grid(row=6, column=0, columnspan=3, sticky="w", pady=(8, 0))
+        for column, (name, variable) in enumerate(self.existing_formats.items()):
+            control = ttk.Checkbutton(outputs, text=name.title(), variable=variable)
+            control.grid(row=0, column=column, sticky="w", padx=(0, 12))
+            self.existing_controls.append(control)
+
+        ttk.Label(dialog, textvariable=self.existing_status, wraplength=700).grid(
+            row=4, column=0, sticky="w", padx=12, pady=8,
+        )
+        buttons = ttk.Frame(dialog)
+        buttons.grid(row=5, column=0, sticky="e", padx=12, pady=(0, 12))
+        ttk.Button(buttons, text="Close", command=self._close_existing_results_dialog).grid(
+            row=0, column=0, padx=(0, 8),
+        )
+        self.existing_start_button = ttk.Button(
+            buttons, text="Start Translation", command=self._start_existing_results_translation,
+        )
+        self.existing_start_button.grid(row=0, column=1)
+        self.existing_controls.append(self.existing_start_button)
+        dialog.protocol("WM_DELETE_WINDOW", self._close_existing_results_dialog)
+        dialog.bind("<Escape>", lambda _event: self._close_existing_results_dialog())
+        dialog.grab_set()
+        self._update_existing_provider_view()
+        self.existing_start_button.focus_set()
+
+    def _close_existing_results_dialog(self) -> None:
+        if getattr(self, "processing", False):
+            self.existing_status.set("Translation is still running; close this window after it finishes.")
+            return
+        dialog = self.existing_results_dialog
+        self.existing_results_dialog = None
+        if dialog is not None:
+            dialog.destroy()
+        self._restore_main_focus()
+
+    def _add_existing_result_folder(self) -> None:
+        folder = filedialog.askdirectory(title="Select Completed VideoText Result", parent=self.existing_results_dialog)
+        if folder:
+            self._add_existing_result_path(folder)
+
+    def _add_existing_result_path(self, path: str | Path) -> bool:
+        """Append a visibly unique result folder while preserving selection order."""
+
+        value = str(Path(path))
+        key = os.path.normcase(str(Path(value).resolve()))
+        if any(os.path.normcase(str(Path(existing).resolve())) == key for existing in self.existing_result_paths):
+            self.existing_status.set(f"Already selected: {value}")
+            return False
+        self.existing_result_paths.append(value)
+        self._refresh_existing_results_list()
+        return True
+
+    def _remove_selected_existing_result(self) -> None:
+        selected = self.existing_results_listbox.curselection()
+        if selected:
+            del self.existing_result_paths[selected[0]]
+            self._refresh_existing_results_list()
+
+    def _clear_existing_results(self) -> None:
+        self.existing_result_paths.clear()
+        self._refresh_existing_results_list()
+
+    def _refresh_existing_results_list(self) -> None:
+        self.existing_results_listbox.delete(0, "end")
+        for path in self.existing_result_paths:
+            self.existing_results_listbox.insert("end", path)
+
+    def _browse_existing_output_root(self) -> None:
+        folder = filedialog.askdirectory(title="Select Translation Output Folder", parent=self.existing_results_dialog)
+        if folder:
+            self.existing_output_root.set(folder)
+
+    def _existing_available_targets(self) -> set[str]:
+        return _available_translation_targets_for(
+            self.existing_provider.get(), self.existing_languages,
+            self.local_translation_availability,
+        )
+
+    def _update_existing_provider_view(self) -> None:
+        available = self._existing_available_targets()
+        _discard_unavailable_targets(self.existing_languages, available)
+        self.existing_local_provider_control.configure(
+            state="normal" if self.local_translation_availability.installed_models else "disabled"
+        )
+        self.existing_model_selector.configure(
+            state="disabled" if self.existing_provider.get() == "local" else "readonly"
+        )
+        selected = [label for code, label in TRANSLATION_TARGET_LOCALES if self.existing_languages[code].get()]
+        self.existing_locale_summary.set("; ".join(selected) if selected else "Choose target locales…")
+
+    def _show_existing_locale_selector(self) -> None:
+        dialog = tk.Toplevel(self.existing_results_dialog)
+        dialog.title("Target Locales")
+        dialog.transient(self.existing_results_dialog)
+        available = self._existing_available_targets()
+        pending = {code: tk.BooleanVar(value=variable.get()) for code, variable in self.existing_languages.items()}
+        first_enabled = None
+        for row, (code, label) in enumerate(TRANSLATION_TARGET_LOCALES):
+            enabled = code in available
+            control = ttk.Checkbutton(
+                dialog, text=label if enabled else f"{label} — model not installed",
+                variable=pending[code], state="normal" if enabled else "disabled",
+            )
+            control.grid(row=row, column=0, sticky="w", padx=12, pady=2)
+            if enabled and first_enabled is None:
+                first_enabled = control
+        buttons = ttk.Frame(dialog)
+        buttons.grid(row=len(TRANSLATION_TARGET_LOCALES), column=0, sticky="e", padx=12, pady=12)
+
+        def close() -> None:
+            dialog.destroy()
+
+        def apply() -> None:
+            for code, variable in self.existing_languages.items():
+                variable.set(pending[code].get() if code in available else False)
+            self._update_existing_provider_view()
+            close()
+
+        ttk.Button(buttons, text="Cancel", command=close).grid(row=0, column=0, padx=(0, 8))
+        apply_button = ttk.Button(buttons, text="Apply", command=apply)
+        apply_button.grid(row=0, column=1)
+        dialog.protocol("WM_DELETE_WINDOW", close)
+        dialog.bind("<Escape>", lambda _event: close())
+        dialog.bind("<Return>", lambda _event: apply())
+        dialog.grab_set()
+        (first_enabled or apply_button).focus_set()
+
+    def _existing_results_settings(self):
+        """Validate dialog choices without cloud consent or provider construction."""
+
+        if not self.existing_result_paths:
+            self.existing_status.set("Add at least one completed VideoText result folder.")
+            return None
+        output_value = self.existing_output_root.get().strip()
+        if not output_value or not Path(output_value).is_dir():
+            self.existing_status.set("Select an existing output folder.")
+            return None
+        provider_name = self.existing_provider.get()
+        if provider_name not in {"openai", "local"}:
+            self.existing_status.set("Select an available translation provider.")
+            return None
+        languages = tuple(
+            code for code, variable in self.existing_languages.items() if variable.get()
+        )
+        if not languages:
+            self.existing_status.set("Select at least one target locale.")
+            return None
+        if any(language not in self._existing_available_targets() for language in languages):
+            self.existing_status.set("A selected target locale is unavailable for this provider.")
+            return None
+        formats = tuple(name for name, variable in self.existing_formats.items() if variable.get())
+        if not formats:
+            self.existing_status.set("Select at least one translation output format.")
+            return None
+        try:
+            grouping = TranslationOutputGrouping(self.existing_grouping.get())
+            model = (
+                resolve_vetted_openai_model(self.existing_model.get())
+                if provider_name == "openai" else None
+            )
+        except ValueError as error:
+            self.existing_status.set(str(error))
+            return None
+        return provider_name, languages, grouping, formats, model
+
+    def _set_existing_controls_state(self, state: str) -> None:
+        for control in self.existing_controls:
+            control.configure(state=state)
+        if state == "normal":
+            self._update_existing_provider_view()
+
+    def _start_existing_results_translation(self) -> None:
+        if self.processing:
+            self.existing_status.set("Wait for the current VideoText operation to finish.")
+            return
+        settings = self._existing_results_settings()
+        if settings is None:
+            return
+        self.processing = True
+        self._set_existing_controls_state("disabled")
+        self.existing_status.set("Validating completed result folders…")
+        worker = threading.Thread(
+            target=self._prepare_existing_results_worker,
+            args=(tuple(self.existing_result_paths), Path(self.existing_output_root.get()), settings),
+            daemon=True,
+        )
+        worker.start()
+        self.after(100, self._poll_worker_messages)
+
+    def _prepare_existing_results_worker(self, selected_paths, output_root: Path, settings) -> None:
+        """Validate and reconstruct trusted caches without touching Tk widgets."""
+
+        try:
+            preparation = prepare_existing_results_translation(selected_paths, output_root)
+            self.message_queue.put(("existing_results_prepared", (preparation, settings)))
+        except Exception as error:
+            self.message_queue.put(("existing_results_error", f"{type(error).__name__}: {error}"))
+
+    @staticmethod
+    def _existing_validation_summary(preparation: ExistingResultsTranslationPreparation) -> str:
+        lines = [
+            f"Valid completed results: {len(preparation.valid_results)}",
+            f"Invalid selections: {len(preparation.invalid_results)}",
+            f"Duplicates ignored: {len(preparation.duplicate_results)}",
+        ]
+        if preparation.invalid_results:
+            lines.extend(
+                f"Invalid: {item.selected_path} ({item.message})"
+                for item in preparation.invalid_results
+            )
+        if preparation.duplicate_results:
+            lines.extend(
+                f"Duplicate: {item.selected_path}" for item in preparation.duplicate_results
+            )
+        return "\n".join(lines)
+
+    def _handle_existing_results_prepared(self, preparation, settings) -> None:
+        """Resolve mixed inputs and cloud consent on the Tk main thread."""
+
+        summary = self._existing_validation_summary(preparation)
+        if not preparation.has_valid_sources:
+            self.existing_status.set(summary)
+            messagebox.showerror(
+                "No Valid Completed Results", summary,
+                parent=self.existing_results_dialog,
+            )
+            self._finish_existing_results_translation()
+            return
+        if preparation.invalid_results or preparation.duplicate_results:
+            proceed = messagebox.askyesno(
+                "Completed Result Validation",
+                f"{summary}\n\nContinue with valid results?",
+                parent=self.existing_results_dialog,
+            )
+            if not proceed:
+                self.existing_status.set("Translation cancelled after completed-result validation.")
+                self._finish_existing_results_translation()
+                return
+
+        provider_name, languages, grouping, formats, model = settings
+        api_key = None
+        if provider_name == "openai":
+            acknowledged = messagebox.askokcancel(
+                "Cloud Translation Disclosure",
+                "Selected OCR-derived text will be transmitted to OpenAI.\n\n"
+                "Video and image data are not sent. Internet access and a session-only API key are required; usage may incur charges. Translation remains subject to human review.\n\nContinue?",
+                parent=self.existing_results_dialog,
+            )
+            if not acknowledged:
+                self.existing_status.set("Translation was cancelled before any text was sent.")
+                self._finish_existing_results_translation()
+                return
+            api_key = simpledialog.askstring(
+                "OpenAI API Key", "Enter an API key for this session only:",
+                parent=self.existing_results_dialog, show="*",
+            )
+            if not api_key or not api_key.strip():
+                self.existing_status.set("Translation requires an OpenAI API key.")
+                self._finish_existing_results_translation()
+                return
+            api_key = api_key.strip()
+
+        self.existing_status.set("Translation is running…")
+        worker = threading.Thread(
+            target=self._run_existing_results_worker,
+            args=(preparation, provider_name, languages, grouping, formats, api_key, model),
+            daemon=True,
+        )
+        worker.start()
+
+    def _run_existing_results_worker(
+        self, preparation, provider_name, languages, grouping, formats, api_key, model,
+    ) -> None:
+        """Construct the chosen provider and delegate to the headless service."""
+
+        try:
+            if provider_name == "local":
+                provider = LocalCTranslate2Provider(
+                    LocalTranslationConfig(self.local_translation_model_root)
+                )
+            else:
+                provider = OpenAITranslationProvider(
+                    OpenAITranslationConfig(model=model, api_key=api_key)
+                )
+                provider.ensure_ready()
+            total = sum(
+                len(slide.paragraphs)
+                for item in preparation.valid_results
+                for slide in item.presentation.slides
+            ) * len(languages)
+            self.message_queue.put(("existing_results_progress", (0, total)))
+            result = run_existing_results_translation(
+                preparation,
+                f"translation-{preparation.output_workspace.name}",
+                provider,
+                languages,
+                grouping,
+                formats,
+                progress_callback=lambda current, count: self.message_queue.put(
+                    ("existing_results_progress", (current, count))
+                ),
+            )
+            self.message_queue.put(("existing_results_complete", (preparation, result)))
+        except Exception as error:
+            diagnostic_path = write_gui_diagnostic(
+                "existing-results translation exception", traceback.format_exc()
+            )
+            detail = f"{type(error).__name__}: {error}"
+            if diagnostic_path is not None:
+                detail += f"\nDiagnostic log: {diagnostic_path}"
+            self.message_queue.put(("existing_results_error", detail))
+
+    def _finish_existing_results_translation(self) -> None:
+        self.processing = False
+        self._set_existing_controls_state("normal")
+
+    def _show_existing_results_completion(self, preparation, result) -> None:
+        exported = result.export_result
+        paths = [str(path) for values in exported.paths.values() for path in values]
+        locale_names = [translation_locale_display_name(code) for code in result.job.target_languages]
+        summary = "\n".join((
+            f"Valid completed runs processed: {len(preparation.valid_results)}",
+            f"Invalid selections: {len(preparation.invalid_results)}",
+            f"Duplicates ignored: {len(preparation.duplicate_results)}",
+            "Target locales: " + ", ".join(locale_names),
+            f"Succeeded: {exported.success_count}",
+            f"Failed: {exported.failure_count}",
+            f"Review Recommended: {result.review_recommended_count}",
+            f"Workspace: {preparation.output_workspace}",
+            "Generated outputs:",
+            *(paths or ["None"]),
+        ))
+        self.existing_status.set(
+            "Translation completed with failures." if exported.failure_count else "Translation completed."
+        )
+        self._show_existing_results_summary_dialog(summary, preparation.output_workspace)
+
+    def _show_existing_results_summary_dialog(self, summary: str, output_workspace: Path) -> None:
+        """Display a selectable completion report consistent with other workflows."""
+
+        dialog = tk.Toplevel(self.existing_results_dialog)
+        dialog.title("Batch Translation Complete")
+        dialog.transient(self.existing_results_dialog)
+        dialog.columnconfigure(0, weight=1)
+        dialog.rowconfigure(0, weight=1)
+        _center_dialog(dialog, self.master, preferred_width=700, preferred_height=500)
+        summary_text = tk.Text(dialog, wrap="none", padx=8, pady=8)
+        summary_text.grid(row=0, column=0, sticky="nsew", padx=(12, 0), pady=(12, 0))
+        vertical = ttk.Scrollbar(dialog, orient="vertical", command=summary_text.yview)
+        vertical.grid(row=0, column=1, sticky="ns", pady=(12, 0))
+        horizontal = ttk.Scrollbar(dialog, orient="horizontal", command=summary_text.xview)
+        horizontal.grid(row=1, column=0, sticky="ew", padx=(12, 0))
+        summary_text.configure(yscrollcommand=vertical.set, xscrollcommand=horizontal.set)
+        summary_text.insert("1.0", summary)
+        summary_text.configure(state="disabled")
+        buttons = ttk.Frame(dialog)
+        buttons.grid(row=2, column=0, columnspan=2, sticky="e", padx=12, pady=12)
+
+        def close() -> None:
+            dialog.destroy()
+            self.existing_start_button.focus_set()
+
+        ttk.Button(
+            buttons, text="Open Output Folder",
+            command=lambda: self._open_output_folder(output_workspace),
+        ).grid(row=0, column=0, padx=(0, 8))
+        close_button = ttk.Button(buttons, text="Close", command=close)
+        close_button.grid(row=0, column=1)
+        dialog.protocol("WM_DELETE_WINDOW", close)
+        dialog.bind("<Escape>", lambda _event: close())
+        dialog.grab_set()
+        close_button.focus_set()
+
     def _start_batch_processing(self) -> None:
         """Start a shared sequential full-video batch from the visible queue."""
 
@@ -1437,6 +1977,27 @@ class VideoTextApp(ttk.Frame):
                     if total:
                         self.progress_bar.configure(mode="determinate")
                         self.progress_value.set(int((current / total) * 100))
+
+                elif message_type == "existing_results_prepared":
+                    preparation, settings = payload
+                    self._handle_existing_results_prepared(preparation, settings)
+
+                elif message_type == "existing_results_progress":
+                    current, total = payload
+                    self.existing_status.set(f"Translating {current} of {total}")
+
+                elif message_type == "existing_results_complete":
+                    preparation, translation_result = payload
+                    self._show_existing_results_completion(preparation, translation_result)
+                    self._finish_existing_results_translation()
+
+                elif message_type == "existing_results_error":
+                    self.existing_status.set(f"Translation failed: {payload}")
+                    self._finish_existing_results_translation()
+                    messagebox.showerror(
+                        "Batch Translation Failed", payload,
+                        parent=self.existing_results_dialog,
+                    )
 
                 elif message_type == "error":
                     self._set_status(f"Processing failed: {payload}")
@@ -1790,6 +2351,7 @@ def _insert_formatted_user_guide(text_widget: tk.Text, content: str) -> None:
             "Export Formats",
             "OCR Quality",
             "Batch Processing",
+            "Batch Translate Existing Results",
             "Recent Sources",
             "Advanced Mode (Replay)",
             "Output Folder Structure",

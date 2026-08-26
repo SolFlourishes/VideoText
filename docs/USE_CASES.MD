@@ -542,3 +542,34 @@ organizations processing large multilingual video collections.
 
 VideoText supports efficient human review without presenting heuristic warnings
 as calibrated translation confidence or automated verification.
+
+---
+
+# 11. Translate an Existing Library Without Repeating OCR
+
+**Status:** Current
+
+## Problem
+
+An organization may already have a library of completed VideoText results and
+later need translations for additional languages. Reprocessing every original
+video would repeat costly OCR work and create unnecessary duplicate evidence.
+
+## VideoText Workflow
+
+VideoText can select multiple completed result folders, reconstruct their
+Presentations from preserved trusted reading-order caches, and pass them to the
+existing translation pipeline. Users retain the existing provider, target
+locale, grouping, export, provenance, and review-intelligence choices.
+
+## Outputs and Evidence
+
+Translation artifacts are created in a separate workspace. Source result
+folders, source OCR, and reading-order checkpoints remain unchanged. Invalid or
+duplicate selections and partial translation failures remain visible.
+
+## Value
+
+Localization teams can add languages to an already processed video collection
+without rerunning video analysis or OCR, while preserving the original evidence
+and human-review workflow.

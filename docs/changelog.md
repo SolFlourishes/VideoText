@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.7.1
+
+### Batch Translate Existing Results
+
+### Added
+
+- A dedicated workflow for translating multiple completed VideoText result
+  folders from their preserved `cache/reading_order.pkl` checkpoints
+- Entry points in the File menu and the main Batch Processing area
+- Existing Local Translation and OpenAI Cloud choices, multiple target locales,
+  all existing output grouping modes, and existing review intelligence
+- Ordered validation with clear invalid/duplicate reporting and explicit
+  confirmation before mixed valid/invalid selections continue
+
+### Behavior and limitations
+
+- OCR and video processing are not rerun, and source result folders remain
+  unchanged. New translation artifacts use a separate uniquely named workspace.
+- Partial translation failures remain visible and do not abort all remaining
+  sources or target locales.
+- Reading-order caches use Python pickle and should only be reused from trusted
+  VideoText runs. Arbitrary historical cache compatibility and cache migration
+  are not provided.
+- Translation cancellation and reviewed-workbook import are not included.
+
 ## 1.7.0
 
 ### Translation Review
@@ -30,8 +55,8 @@
   confidence and do not establish correctness.
 - OCR workflows and existing CSV/Markdown translation behavior remain
   compatible. Local/cloud provider architecture is unchanged.
-- Reviewed-workbook import, persistent review projects, a dedicated review GUI,
-  and batch translation of existing OCR results remain future work.
+- Reviewed-workbook import, persistent review projects, and a dedicated review
+  GUI remain future work.
 - The local M2M100 model uses generic language tokens and does not guarantee
   regional localization.
 
