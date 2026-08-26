@@ -12,8 +12,9 @@ from typing import Iterable, Mapping
 from translation_contract import TranslationResult, TranslationSourceType, TranslationStatus
 from translation_job import TranslationJob
 from translation_output_plan import TranslationOutputLayout, language_display_name
-from translation_review import (TranslationReviewAssessment, TranslationReviewStatus,
-    assess_translation_results, review_status_display)
+from translation_review import (HumanTranslationReview, TranslationReviewAssessment,
+    TranslationReviewStatus, assess_translation_results, resolve_reviewed_translation,
+    review_status_display)
 from translation_workbook import (
     TranslationWorkbookRow, TranslationWorkbookWriteResult,
     _safe_error, populate_translation_workbooks,
@@ -48,16 +49,38 @@ class TranslationExportRecord:
     ordering_index: int
     error: str | None
     review_assessment: TranslationReviewAssessment
-    modified_translation: str | None = None
-    verified: bool = False
+    human_review: HumanTranslationReview | None = None
 
     def __post_init__(self) -> None:
         if self.translation_status is TranslationStatus.SUCCESS and not self.initial_ai_translation:
             raise ValueError("Successful translation export records require initial_ai_translation.")
         if self.translation_status is TranslationStatus.FAILURE and self.initial_ai_translation is not None:
             raise ValueError("Failed translation export records cannot contain initial_ai_translation.")
-        if self.modified_translation is not None or self.verified:
-            raise ValueError("Reviewed translation data is not consumed by the 1.6 automated export.")
+        if not isinstance(self.review_assessment, TranslationReviewAssessment):
+            raise ValueError("review_assessment must be a TranslationReviewAssessment.")
+        if self.review_assessment.request_id != self.request_id:
+            raise ValueError("Review assessment does not match the translation request.")
+        if self.human_review is None:
+            object.__setattr__(self, "human_review", HumanTranslationReview(self.request_id))
+        elif not isinstance(self.human_review, HumanTranslationReview):
+            raise ValueError("human_review must be a HumanTranslationReview.")
+        elif self.human_review.request_id != self.request_id:
+            raise ValueError("Human review does not match the translation request.")
+
+    @property
+    def reviewed_translation(self) -> str | None:
+        """Return centrally resolved output text without mutating source evidence."""
+
+        return resolve_reviewed_translation(
+            self.translation_status, self.initial_ai_translation, self.human_review).output_text
+
+    @property
+    def human_verified_translation(self) -> str | None:
+        """Return verified text without changing the preserved AI translation."""
+
+        resolution = resolve_reviewed_translation(
+            self.translation_status, self.initial_ai_translation, self.human_review)
+        return resolution.output_text if resolution.human_verified else None
 
 
 @dataclass(frozen=True)

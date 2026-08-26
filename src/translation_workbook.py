@@ -22,23 +22,32 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 from excel_exporter import (
     AI_TRANSLATION_FILL, BASE_ROW_HEIGHT, HEADER_FILL, HEADER_ROW_HEIGHT,
-    MODIFIED_TRANSLATION_FILL, MODIFIED_TRANSLATION_NOTE,
-    SOURCE_REFERENCE_FILL, TABLE_HEADER_ROW, TABLE_HEADERS, TABLE_START_ROW,
+    MODIFIED_TRANSLATION_FILL,
+    SOURCE_REFERENCE_FILL, TABLE_HEADER_ROW, TABLE_START_ROW,
     TEXT_COLUMN_WIDTH, TITLE_TEXT, VERIFIED_COLUMN_WIDTH, VERIFIED_FILL,
-    VERIFIED_INPUT_MESSAGE, _estimate_row_height,
+    _estimate_row_height,
 )
 from translation_contract import TranslationResult, TranslationStatus
 from translation_job import TranslationJob
 from translation_output_plan import PlannedSheet, TranslationOutputLayout
-from translation_review import (TranslationReviewAssessment, assess_translation_results,
-    review_status_display)
+from translation_review import (HumanTranslationReview, TranslationReviewAssessment, assess_translation_results,
+    human_review_status_display, resolve_reviewed_translation, review_status_display)
 
 
 _METADATA_SHEET_NAME = "_VideoText_Metadata"
-_SCHEMA_VERSION = "1"
-_REVIEW_STATUS_HEADER = "Review Status"
+_SCHEMA_VERSION = "2"
+_TABLE_HEADERS = (
+    "Slide", "Source OCR Text", "Original AI Translation", "Verified Translation",
+    "Human Review Status", "Translation Review Status", "Review Reasons",
+    "Reviewer Notes", "Target Language", "Provider", "Model",
+)
 _REVIEW_GUIDANCE = ("AI-generated translations require human review. Items marked Review Recommended "
-                    "have additional automated warning signals and may warrant particular attention.")
+                    "have additional automated warning signals and may warrant particular attention. "
+                    "Use Verified Translation and Human Review Status for human review; source OCR and "
+                    "the original AI translation remain unchanged.")
+_VERIFIED_TRANSLATION_NOTE = (
+    "Enter the human-verified translation here. The original AI translation remains unchanged."
+)
 _SENSITIVE_METADATA_KEY = re.compile(r"(?:api.?key|token|secret|password|credential|authorization)", re.IGNORECASE)
 _SENSITIVE_ERROR = re.compile(r"(?:bearer\s+|sk-[A-Za-z0-9_-]+|(?:api[_ -]?key|token|secret|password)\s*[=:]\s*)[^\s,;]+", re.IGNORECASE)
 
@@ -137,6 +146,25 @@ def _result_map(results: Iterable[TranslationResult]) -> dict[str, TranslationRe
     return mapped
 
 
+def _human_review_map(reviews: Iterable[HumanTranslationReview] | None,
+                      request_ids: set[str]) -> dict[str, HumanTranslationReview]:
+    """Return one explicit human-review record per result, defaulting to Unreviewed."""
+
+    if reviews is None:
+        return {request_id: HumanTranslationReview(request_id) for request_id in request_ids}
+    mapped: dict[str, HumanTranslationReview] = {}
+    for review in reviews:
+        if not isinstance(review, HumanTranslationReview):
+            raise ValueError("human_reviews must contain HumanTranslationReview values.")
+        if review.request_id in mapped:
+            raise ValueError(f"Duplicate human review for request: {review.request_id}.")
+        mapped[review.request_id] = review
+    if set(mapped) != request_ids:
+        identifier = sorted((request_ids - set(mapped)) or (set(mapped) - request_ids))[0]
+        raise ValueError(f"Human reviews must match translation results exactly: {identifier}.")
+    return mapped
+
+
 def _validate_sheet_evidence(sheet: PlannedSheet, rows: tuple[TranslationWorkbookRow, ...], results: Mapping[str, TranslationResult]) -> tuple[tuple[TranslationWorkbookRow, TranslationResult], ...]:
     """Strictly match a sheet's expected rows to exactly one compatible result."""
 
@@ -162,7 +190,7 @@ def _validate_sheet_evidence(sheet: PlannedSheet, rows: tuple[TranslationWorkboo
 def _write_review_header(worksheet, source_name: str, source_language: str, target_language: str) -> None:
     """Reuse the established translation review structure and styling."""
 
-    worksheet.merge_cells("A1:F1")
+    worksheet.merge_cells("A1:K1")
     title = worksheet.cell(row=1, column=1, value=TITLE_TEXT)
     title.font = Font(bold=True, size=16)
     title.alignment = Alignment(vertical="center")
@@ -172,26 +200,27 @@ def _write_review_header(worksheet, source_name: str, source_language: str, targ
                 ("Language (Target):", target_language), ("Notes:", ""))
     for offset, (label, value) in enumerate(metadata, start=2):
         worksheet.cell(row=offset, column=1, value=label).font = Font(bold=True)
-        worksheet.merge_cells(start_row=offset, start_column=2, end_row=offset, end_column=6)
+        worksheet.merge_cells(start_row=offset, start_column=2, end_row=offset, end_column=11)
         cell = worksheet.cell(row=offset, column=2, value=value)
         cell.alignment = Alignment(wrap_text=True, vertical="top")
         cell.protection = Protection(locked=False)
     worksheet.row_dimensions[8].height = 36
-    for column, header in enumerate(TABLE_HEADERS, start=1):
+    for column, header in enumerate(_TABLE_HEADERS, start=1):
         cell = worksheet.cell(row=TABLE_HEADER_ROW, column=column, value=header)
         cell.font = Font(bold=True)
         cell.fill = HEADER_FILL
         cell.alignment = Alignment(wrap_text=True, vertical="center")
     worksheet.row_dimensions[TABLE_HEADER_ROW].height = HEADER_ROW_HEIGHT
     worksheet.cell(row=9, column=1, value=_REVIEW_GUIDANCE).alignment = Alignment(wrap_text=True, vertical="top")
-    worksheet.merge_cells("A9:F9")
+    worksheet.merge_cells("A9:K9")
     worksheet.row_dimensions[9].height = 30
     worksheet.freeze_panes = f"A{TABLE_START_ROW}"
 
 
 def _write_sheet(worksheet, sheet: PlannedSheet, source_name: str, source_language: str,
                  matches: tuple[tuple[TranslationWorkbookRow, TranslationResult], ...],
-                 assessments: Mapping[str, TranslationReviewAssessment]) -> list[dict[str, Any]]:
+                 assessments: Mapping[str, TranslationReviewAssessment],
+                 human_reviews: Mapping[str, HumanTranslationReview]) -> list[dict[str, Any]]:
     """Write one review sheet and return non-user-facing row provenance."""
 
     _write_review_header(worksheet, source_name, source_language, sheet.target_language)
@@ -200,24 +229,41 @@ def _write_sheet(worksheet, sheet: PlannedSheet, source_name: str, source_langua
         number = worksheet.max_row + 1
         translation = result.translated_text if result.status is TranslationStatus.SUCCESS else None
         assessment = assessments[result.request_id]
+        human_review = human_reviews[result.request_id]
+        resolution = resolve_reviewed_translation(result.status, result.translated_text, human_review)
+        verified_translation = resolution.output_text if resolution.human_verified else None
+        review_reasons = "; ".join(warning.explanation for warning in assessment.warnings)
         cells = (
             worksheet.cell(number, 1, row.slide_value), worksheet.cell(number, 2, row.original_text),
-            worksheet.cell(number, 3, translation), worksheet.cell(number, 4, ""), worksheet.cell(number, 5, ""),
+            worksheet.cell(number, 3, translation), worksheet.cell(number, 4, verified_translation),
+            worksheet.cell(number, 5, human_review_status_display(human_review.status)),
             worksheet.cell(number, 6, review_status_display(assessment.status)),
+            worksheet.cell(number, 7, review_reasons or None),
+            worksheet.cell(number, 8, human_review.reviewer_notes),
+            worksheet.cell(number, 9, result.request.target_language),
+            worksheet.cell(number, 10, result.provider_id), worksheet.cell(number, 11, result.model_id),
         )
         cells[0].protection = Protection(locked=True); cells[0].fill = SOURCE_REFERENCE_FILL
         cells[1].alignment = Alignment(wrap_text=True, vertical="top"); cells[1].protection = Protection(locked=True); cells[1].fill = SOURCE_REFERENCE_FILL
         cells[2].alignment = Alignment(wrap_text=True, vertical="top"); cells[2].protection = Protection(locked=True); cells[2].fill = AI_TRANSLATION_FILL
         cells[3].alignment = Alignment(wrap_text=True, vertical="top"); cells[3].protection = Protection(locked=False); cells[3].fill = MODIFIED_TRANSLATION_FILL
-        cells[3].comment = Comment(MODIFIED_TRANSLATION_NOTE, "VideoText")
+        cells[3].comment = Comment(_VERIFIED_TRANSLATION_NOTE, "VideoText")
         cells[4].protection = Protection(locked=False); cells[4].fill = VERIFIED_FILL
         cells[5].alignment = Alignment(wrap_text=True, vertical="top"); cells[5].protection = Protection(locked=True)
+        cells[6].alignment = Alignment(wrap_text=True, vertical="top"); cells[6].protection = Protection(locked=True)
+        cells[7].alignment = Alignment(wrap_text=True, vertical="top"); cells[7].protection = Protection(locked=False)
+        for cell in cells[8:]:
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+            cell.protection = Protection(locked=True)
         if assessment.warnings:
             cells[5].comment = Comment(
                 "Review warnings:\n" + "\n".join(f"- {warning.explanation}" for warning in assessment.warnings),
                 "VideoText",
             )
-        worksheet.row_dimensions[number].height = _estimate_row_height(row.original_text, translation or "", "")
+        worksheet.row_dimensions[number].height = _estimate_row_height(
+            row.original_text, translation or "", verified_translation or "",
+            review_reasons, human_review.reviewer_notes or "",
+        )
         metadata_rows.append({
             "sheet_id": sheet.sheet_id, "source_item_id": row.source_item_id,
             "source_reference": row.source_reference, "request_id": result.request_id,
@@ -234,16 +280,18 @@ def _write_sheet(worksheet, sheet: PlannedSheet, source_name: str, source_langua
             "provider_metadata": json.dumps(_safe_metadata(result.provider_metadata), ensure_ascii=False, sort_keys=True),
         })
     worksheet.column_dimensions["A"].width = 10
-    for column in ("B", "C", "D"):
+    for column in ("B", "C", "D", "G", "H"):
         worksheet.column_dimensions[column].width = TEXT_COLUMN_WIDTH
     worksheet.column_dimensions["E"].width = VERIFIED_COLUMN_WIDTH
     worksheet.column_dimensions["F"].width = 24
-    worksheet.cell(row=TABLE_HEADER_ROW, column=6, value=_REVIEW_STATUS_HEADER).font = Font(bold=True)
-    worksheet.cell(row=TABLE_HEADER_ROW, column=6).fill = HEADER_FILL
-    worksheet.cell(row=TABLE_HEADER_ROW, column=6).alignment = Alignment(wrap_text=True, vertical="center")
-    worksheet.auto_filter.ref = f"A{TABLE_HEADER_ROW}:F{worksheet.max_row}"
-    validation = DataValidation(type="list", formula1='"Yes,No"', allow_blank=True)
-    validation.promptTitle = "Verified"; validation.prompt = VERIFIED_INPUT_MESSAGE; validation.showInputMessage = True
+    for column in ("I", "J", "K"):
+        worksheet.column_dimensions[column].width = 20
+    worksheet.auto_filter.ref = f"A{TABLE_HEADER_ROW}:K{worksheet.max_row}"
+    validation = DataValidation(
+        type="list", formula1='"Unreviewed,Accepted,Edited / Verified,Flagged"', allow_blank=False)
+    validation.promptTitle = "Human Review Status"
+    validation.prompt = "Select the human review disposition for this translation."
+    validation.showInputMessage = True
     worksheet.add_data_validation(validation)
     if worksheet.max_row >= TABLE_START_ROW:
         validation.add(f"E{TABLE_START_ROW}:E{worksheet.max_row}")
@@ -297,7 +345,8 @@ def _save_new_workbook(workbook: Workbook, final_path: Path) -> None:
 def populate_translation_workbooks(job: TranslationJob, output_layout: TranslationOutputLayout,
                                    source_rows: Iterable[TranslationWorkbookRow], translation_results: Iterable[TranslationResult],
                                    output_directory: str | Path,
-                                   assessments: Iterable[TranslationReviewAssessment] | None = None) -> TranslationWorkbookWriteResult:
+                                   assessments: Iterable[TranslationReviewAssessment] | None = None,
+                                   human_reviews: Iterable[HumanTranslationReview] | None = None) -> TranslationWorkbookWriteResult:
     """Create only new planned workbooks from complete, already-decided evidence."""
 
     if not isinstance(job, TranslationJob) or not isinstance(output_layout, TranslationOutputLayout):
@@ -314,6 +363,7 @@ def populate_translation_workbooks(job: TranslationJob, output_layout: Translati
     assessment_map = {assessment.request_id: assessment for assessment in assessment_values}
     if len(assessment_map) != len(assessment_values) or set(assessment_map) != set(results):
         raise ValueError("Translation review assessments must match translation results exactly.")
+    human_review_map = _human_review_map(human_reviews, set(results))
     source_names = {item.source_item_id: item.display_name for item in job.source_items}
     prepared: list[tuple[Any, tuple[tuple[PlannedSheet, tuple[tuple[TranslationWorkbookRow, TranslationResult], ...]], ...]]] = []
     expected_ids: set[str] = set()
@@ -341,7 +391,7 @@ def populate_translation_workbooks(job: TranslationJob, output_layout: Translati
             first = False
             worksheet.title = sheet.name
             metadata_rows.extend(_write_sheet(worksheet, sheet, source_names[sheet.source_item_id], job.source_language,
-                                              matches, assessment_map))
+                                              matches, assessment_map, human_review_map))
             row_count += len(matches); sheet_count += 1
             success_count += sum(result.status is TranslationStatus.SUCCESS for _, result in matches)
             failure_count += sum(result.status is TranslationStatus.FAILURE for _, result in matches)
