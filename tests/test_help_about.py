@@ -56,6 +56,15 @@ class HelpAboutTests(unittest.TestCase):
             with self.subTest(required_text=required_text):
                 self.assertIn(required_text, content)
 
+    def test_how_to_use_explains_batch_translation_of_trusted_existing_results(self):
+        content = get_how_to_use_text()
+
+        self.assertIn("Batch Translate Existing Results", content)
+        self.assertIn("does not rerun OCR", content)
+        self.assertIn("separate workspace", content)
+        self.assertIn("source result folders remain unchanged", content)
+        self.assertIn("trusted VideoText results", content)
+
     def test_about_explains_local_storage_and_no_administrator_requirements(self):
         content = get_about_text().lower()
 

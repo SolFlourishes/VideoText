@@ -72,6 +72,10 @@ Batch Processing handles multiple videos in one selected output location. Each v
 
 When Excel is selected for a batch, choose either one workbook per video or one consolidated workbook with a worksheet for each successful video.
 
+Batch Translate Existing Results
+
+File > Batch Translate Existing Results reuses preserved reading-order results from multiple completed VideoText runs and can create outputs for multiple target locales. It does not rerun OCR. Translation outputs are written to a separate workspace and the selected source result folders remain unchanged. Only select trusted VideoText results created on a computer you trust.
+
 Recent Sources
 
 File > Recent Sources remembers recently used local videos, direct video URLs, and batch folders. Choose Clear Recent Sources from the same menu to remove them.
