@@ -213,6 +213,14 @@ CandidateFrame + OCR observations
 
 ### Responsibility
 
+The processing pipeline depends on a narrow OCR engine contract that returns
+canonical OCR regions. The built-in Paddle adapter owns PaddleOCR imports,
+lazy model initialization, invocation, and Paddle response parsing. Engine
+discovery returns adapter classes without constructing models; production uses
+one process-lifetime Paddle adapter. Version 1.4 registers Paddle as the only
+default engine. Replay checkpoints retain canonical evidence rather than
+engine-specific objects.
+
 Extract visible text together with positional information.
 
 OCR identifies text.
@@ -507,9 +515,8 @@ This allows the codebase to evolve while preserving architectural stability.
 
 - OCR quality intelligence
 - Confidence preservation
-- OCR engine abstraction
 - Translation workflow enhancements
-- Additional benchmarking
+- Version 1.5 OCR-engine evaluation and additional adapters
 
 ## Long-Term
 

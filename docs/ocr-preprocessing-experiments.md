@@ -14,7 +14,14 @@ For a directory, use a UTF-8 JSON map from each image filename to its verified t
 
 CER is total character edit distance divided by verified reference characters. WER uses the equivalent word edit distance and word count. For multiple images, aggregate rates use total edits divided by total reference length; they are not averages of percentages.
 
-The experiment runner sends OCR regions through VideoText's existing confidence filtering, reading order, and line reconstruction. It does not alter PaddleOCR configuration or production processing. To add a variant safely, add it to `src/ocr_preprocessing.py`, add deterministic tests, then compare it with `original` on manually verified frames before proposing any production change.
+The experiment runner calls the common OCR engine contract, then sends its
+canonical OCR regions through VideoText's existing confidence filtering,
+reading order, and line reconstruction. It does not alter PaddleOCR
+configuration or production processing. The separate manual Paddle probe is
+the intentional diagnostic exception for inspecting raw Paddle responses. To
+add a variant safely, add it to `src/ocr_preprocessing.py`, add deterministic
+tests, then compare it with `original` on manually verified frames before
+proposing any production change.
 
 ## Task 32E multi-frame result
 

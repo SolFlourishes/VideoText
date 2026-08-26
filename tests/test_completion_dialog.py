@@ -3,6 +3,7 @@
 import queue
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -19,7 +20,11 @@ from processing_service import (
 
 
 class CompletionDialogTests(unittest.TestCase):
-    def result(self, checkpoint=Path("source/cache/ocr_results.pkl")):
+    def result(
+        self,
+        checkpoint=Path("source/cache/ocr_results.pkl"),
+        mode=ProcessingMode.OCR_RESULTS,
+    ):
         return ProcessingResult(
             presentation=Presentation(),
             run_directory=Path("output/sample_replay"),
@@ -28,12 +33,44 @@ class CompletionDialogTests(unittest.TestCase):
                 "csv": "D:/VideoText Output/sample_replay/sample.csv",
                 "excel": "D:/VideoText Output/sample_replay/sample.xlsx",
             },
-            mode=ProcessingMode.OCR_RESULTS,
+            mode=mode,
             source_path="D:/VideoText/source/cache/ocr_results.pkl",
             resolved_checkpoint_path=checkpoint,
             frame_count=49,
             elapsed_seconds=10,
+            ocr_confidence_statistics=SimpleNamespace(
+                region_count=2,
+                mean=0.9,
+                median=0.9,
+                minimum=0.8,
+                threshold=0.6,
+                below_threshold_count=0,
+                below_threshold_proportion=0.0,
+            ),
         )
+
+    def translation_result(self, provider_name="openai"):
+        return SimpleNamespace(
+            job=SimpleNamespace(
+                provider_name=provider_name,
+                target_languages=("es-419", "ko-KR"),
+            ),
+            export_result=SimpleNamespace(
+                success_count=14,
+                failure_count=0,
+                paths={"excel": (Path("output/translations/review.xlsx"),)},
+            ),
+            review_recommended_count=1,
+        )
+
+    def assert_translation_section_order(self, text):
+        headings = (
+            "OCR Quality\n--------------------",
+            "Translation\n--------------------",
+            "Translation Outputs\n--------------------",
+        )
+        self.assertLess(text.index(headings[0]), text.index(headings[1]))
+        self.assertLess(text.index(headings[1]), text.index(headings[2]))
 
     def test_dialog_text_uses_shared_summary_and_keeps_full_paths(self):
         result = self.result()
@@ -97,6 +134,42 @@ class CompletionDialogTests(unittest.TestCase):
             gui.VideoTextApp._poll_worker_messages(app)
 
         dialog.assert_not_called()
+
+    def test_openai_full_video_uses_live_composition_with_translation_heading(self):
+        text = gui._compose_completion_dialog_text(
+            self.result(checkpoint=None, mode=ProcessingMode.FULL_VIDEO),
+            self.translation_result("openai"),
+        )
+
+        self.assert_translation_section_order(text)
+        self.assertIn("Provider: OpenAI Cloud", text)
+        self.assertIn(
+            "Target languages:\n    Spanish — Latin America\n    Korean — South Korea",
+            text,
+        )
+
+    def test_openai_replay_uses_live_composition_with_translation_heading(self):
+        text = gui._compose_completion_dialog_text(
+            self.result(), self.translation_result("openai"),
+        )
+
+        self.assert_translation_section_order(text)
+        self.assertIn("Mode: OCR results cache", text)
+        self.assertIn("Provider: OpenAI Cloud", text)
+
+    def test_local_completion_uses_live_composition_with_translation_heading(self):
+        text = gui._compose_completion_dialog_text(
+            self.result(), self.translation_result("local-ctranslate2"),
+        )
+
+        self.assert_translation_section_order(text)
+        self.assertIn("Provider: Local Translation", text)
+
+    def test_ocr_only_summary_has_no_translation_section(self):
+        text = gui._compose_completion_dialog_text(self.result())
+
+        self.assertNotIn("Translation\n--------------------", text)
+        self.assertNotIn("Translation Outputs", text)
 
 
 if __name__ == "__main__":

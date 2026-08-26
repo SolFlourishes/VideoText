@@ -193,6 +193,11 @@ class CandidateFrame:
 
     is_duplicate: bool = False
 
+    # OCR-boundary evidence.  ``ocr_results`` remains the mutable working
+    # collection used by reading order; this list preserves the complete set
+    # returned by OCR before confidence filtering.
+    raw_ocr_results: list[OCRResult] = field(default_factory=list)
+
     @property
     def combined_text(self) -> str:
         """
@@ -230,6 +235,25 @@ class CandidateFrame:
             for result in self.ocr_results
             if result.text.strip()
         )
+
+
+def ensure_raw_ocr_results(frame: CandidateFrame) -> list[OCRResult]:
+    """Return raw OCR evidence, adapting legacy checkpoint objects safely.
+
+    Older pickles do not contain ``raw_ocr_results``.  Their current working
+    results are the best evidence still available, so retain a separate list
+    without changing the existing ``ocr_results`` collection.
+    """
+
+    working_results = getattr(frame, "ocr_results", None)
+    if working_results is None:
+        return []
+
+    raw_results = getattr(frame, "raw_ocr_results", None)
+    if raw_results is None:
+        raw_results = list(working_results)
+        frame.raw_ocr_results = raw_results
+    return raw_results
 
 
 @dataclass

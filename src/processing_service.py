@@ -8,7 +8,11 @@ from time import monotonic
 
 from cache_manager import load_cache, save_cache
 from export_manager import export_all
-from models import Presentation
+from models import Presentation, ensure_raw_ocr_results
+from ocr_confidence_stats import (
+    DocumentOCRConfidenceStats,
+    calculate_document_ocr_confidence_stats,
+)
 from ocr_diagnostics import DiagnosticOptions, OCRDiagnosticsWriter
 from run_workspace import (
     create_replay_run_directory,
@@ -310,6 +314,9 @@ class ProcessingResult:
     resolved_checkpoint_path: Path | None
     frame_count: int | None
     elapsed_seconds: float
+    # A transient descriptive summary for consumers such as the GUI.  It is
+    # deliberately not persisted on the canonical Presentation model.
+    ocr_confidence_statistics: DocumentOCRConfidenceStats | None = None
 
 
 MODE_LABELS = {
@@ -445,6 +452,13 @@ def _create_presentation(candidate_frames, metadata: dict[str, object]) -> Prese
     )
 
 
+def _normalize_raw_ocr_evidence(candidate_frames) -> None:
+    """Adapt loaded checkpoint frames before later stages replace working OCR."""
+
+    for frame in candidate_frames:
+        ensure_raw_ocr_results(frame)
+
+
 def _finish_run(
     candidate_frames,
     request: ProcessingRequest,
@@ -456,6 +470,11 @@ def _finish_run(
 ) -> ProcessingResult:
     reporter.stage("consolidation", "Consolidating slides")
     presentation = _create_presentation(candidate_frames, metadata)
+    # Calculate once from preserved raw evidence and share the immutable result
+    # with export and GUI-facing completion handling.
+    ocr_confidence_statistics = calculate_document_ocr_confidence_stats(
+        candidate_frames
+    )
     if diagnostics is not None:
         diagnostics.capture_slides(presentation.slides)
         try:
@@ -479,6 +498,7 @@ def _finish_run(
             current,
             total,
         ),
+        ocr_confidence_statistics=ocr_confidence_statistics,
     )
 
     reporter.complete()
@@ -491,6 +511,7 @@ def _finish_run(
         resolved_checkpoint_path=metadata.get("resolved_checkpoint_path"),
         frame_count=len(candidate_frames),
         elapsed_seconds=reporter.total_elapsed_seconds,
+        ocr_confidence_statistics=ocr_confidence_statistics,
     )
 
 
@@ -518,62 +539,66 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
             reporter.stage("preparing_video", "Preparing video")
             video, fps = open_video(str(resolved_video_path))
 
-            try:
-                output_stem, run_directory = create_run_directory(
-                    output_root,
-                    str(resolved_video_path),
-                )
-                cache_directory = run_directory / "cache"
+            output_stem, run_directory = create_run_directory(
+                output_root,
+                str(resolved_video_path),
+            )
+            cache_directory = run_directory / "cache"
 
-                reporter.stage("frame_selection", "Selecting stable frames")
+            reporter.stage("frame_selection", "Selecting stable frames")
+            try:
                 candidate_frames = analyze_video(
                     video,
                     fps,
                     progress_callback=reporter.frame_selection,
                     total_frames=get_video_frame_count(video),
                 )
-                save_candidate_frames(candidate_frames, run_directory / "candidate_frames")
-                save_cache(candidate_frames, cache_directory / "candidate_frames.pkl")
-
-                reporter.stage("ocr", "Running OCR")
-                candidate_frames = perform_ocr(
-                    candidate_frames,
-                    progress_callback=lambda current, total: reporter.item(
-                        "ocr",
-                        "Running OCR",
-                        current,
-                        total,
-                    ),
-                )
-                if diagnostics is not None:
-                    diagnostics.capture_ocr_frames(candidate_frames)
-                save_cache(candidate_frames, cache_directory / "ocr_results.pkl")
-
-                reporter.stage("reading_order", "Determining reading order")
-                candidate_frames = reconstruct_reading_order(
-                    candidate_frames,
-                    progress_callback=lambda current, total: reporter.item(
-                        "reading_order",
-                        "Reconstructing paragraphs",
-                        current,
-                        total,
-                    ),
-                )
-                if diagnostics is not None:
-                    diagnostics.capture_reconstructed_frames(candidate_frames)
-                save_cache(candidate_frames, cache_directory / "reading_order.pkl")
-
-                return _finish_run(
-                    candidate_frames,
-                    request,
-                    run_directory,
-                    output_stem,
-                    {"video_path": str(resolved_video_path)},
-                    reporter,
-                    diagnostics,
-                )
             finally:
+                # CandidateFrame owns the selected image arrays.  Release the
+                # decoder before PaddleOCR initializes so full-video runs have
+                # the same resource boundary as candidate-cache replay.
                 video.release()
+
+            save_candidate_frames(candidate_frames, run_directory / "candidate_frames")
+            save_cache(candidate_frames, cache_directory / "candidate_frames.pkl")
+
+            reporter.stage("ocr", "Running OCR")
+            candidate_frames = perform_ocr(
+                candidate_frames,
+                progress_callback=lambda current, total: reporter.item(
+                    "ocr",
+                    "Running OCR",
+                    current,
+                    total,
+                ),
+            )
+            if diagnostics is not None:
+                diagnostics.capture_ocr_frames(candidate_frames)
+            save_cache(candidate_frames, cache_directory / "ocr_results.pkl")
+
+            reporter.stage("reading_order", "Determining reading order")
+            candidate_frames = reconstruct_reading_order(
+                candidate_frames,
+                progress_callback=lambda current, total: reporter.item(
+                    "reading_order",
+                    "Reconstructing paragraphs",
+                    current,
+                    total,
+                ),
+            )
+            if diagnostics is not None:
+                diagnostics.capture_reconstructed_frames(candidate_frames)
+            save_cache(candidate_frames, cache_directory / "reading_order.pkl")
+
+            return _finish_run(
+                candidate_frames,
+                request,
+                run_directory,
+                output_stem,
+                {"video_path": str(resolved_video_path)},
+                reporter,
+                diagnostics,
+            )
         finally:
             resolved_source.cleanup()
 
@@ -587,6 +612,7 @@ def process_request(request: ProcessingRequest) -> ProcessingResult:
         request.mode,
         request.source_path,
     )
+    _normalize_raw_ocr_evidence(candidate_frames)
     reporter.stage("checkpoint", f"Resolved checkpoint: {checkpoint_path}")
 
     output_stem, run_directory = create_replay_run_directory(

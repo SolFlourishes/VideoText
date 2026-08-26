@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "corpus_version": "2.0.0-pending-human-verification",
+  "source_video": "sample_videos/sample2.mp4",
+  "source_fps": 29.97002997002997,
+  "frames": [
+    {"frame_id":"sample2_000013","image":"frames/frame_000013.png","frame_number":13,"timestamp_seconds":0.434,"selection_reason":"High-contrast title baseline.","layout_categories":["title","large_text","high_contrast"]},
+    {"frame_id":"sample2_000163","image":"frames/frame_000163.png","frame_number":163,"timestamp_seconds":5.439,"selection_reason":"Two-line heading with mixed capitalization.","layout_categories":["title","mixed_capitalization","punctuation"]},
+    {"frame_id":"sample2_000913","image":"frames/frame_000913.png","frame_number":913,"timestamp_seconds":30.464,"selection_reason":"Five labelled sections with small text.","layout_categories":["dense_text","small_text","structured_content"]},
+    {"frame_id":"sample2_001813","image":"frames/frame_001813.png","frame_number":1813,"timestamp_seconds":60.494,"selection_reason":"Dense body text on a lower-contrast ruled background.","layout_categories":["dense_text","low_contrast","text_over_graphics"]},
+    {"frame_id":"sample2_002714","image":"frames/frame_002714.png","frame_number":2714,"timestamp_seconds":90.524,"selection_reason":"Sparse progressive body content.","layout_categories":["body_paragraph","transitional_frame"]},
+    {"frame_id":"sample2_003314","image":"frames/frame_003314.png","frame_number":3314,"timestamp_seconds":110.544,"selection_reason":"Known fragmented-region and punctuation case.","layout_categories":["dense_text","fragmented_regions","punctuation"]},
+    {"frame_id":"sample2_004515","image":"frames/frame_004515.png","frame_number":4515,"timestamp_seconds":150.584,"selection_reason":"Small quotation, citation, and resource text.","layout_categories":["dense_text","small_text","punctuation"]},
+    {"frame_id":"sample2_006465","image":"frames/frame_006465.png","frame_number":6465,"timestamp_seconds":215.649,"selection_reason":"Long final paragraph with wrap boundaries.","layout_categories":["dense_text","body_paragraph","fragmented_regions"]},
+    {"frame_id":"sample2_007054","image":"frames/frame_007054.png","frame_number":7054,"timestamp_seconds":235.269,"selection_reason":"Sparse closing logo.","layout_categories":["title","large_text","high_contrast"]}
+  ]
+}
