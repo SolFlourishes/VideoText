@@ -7,6 +7,8 @@ from types import SimpleNamespace
 import queue
 import sys
 import tempfile
+import tkinter as tk
+from tkinter import ttk
 import unittest
 from unittest.mock import patch
 
@@ -64,10 +66,94 @@ class Listbox:
 
 
 class TranslationGUIWorkflowTests(unittest.TestCase):
-    def test_file_menu_exposes_existing_results_workflow(self):
-        source = Path(gui.__file__).read_text(encoding="utf-8")
-        self.assertIn('label="Batch Translate Existing Results..."', source)
-        self.assertIn("command=self._show_existing_results_translation", source)
+    def make_runtime_app(self):
+        try:
+            root = tk.Tk()
+        except tk.TclError as error:
+            self.skipTest(f"Tk runtime unavailable: {error}")
+        root.withdraw()
+        self.addCleanup(lambda: root.destroy() if root.winfo_exists() else None)
+        return root, gui.VideoTextApp(root)
+
+    @staticmethod
+    def runtime_file_menu(root):
+        menu_bar = root.nametowidget(root.cget("menu"))
+        file_index = next(
+            index for index in range(menu_bar.index("end") + 1)
+            if menu_bar.type(index) == "cascade"
+            and menu_bar.entrycget(index, "label") == "File"
+        )
+        return root.nametowidget(menu_bar.entrycget(file_index, "menu"))
+
+    @staticmethod
+    def runtime_menu_labels(menu):
+        return [
+            menu.entrycget(index, "label")
+            for index in range(menu.index("end") + 1)
+            if menu.type(index) != "separator"
+        ]
+
+    def test_runtime_file_menu_retains_recent_sources_and_opens_existing_results_dialog(self):
+        root, app = self.make_runtime_app()
+        file_menu = self.runtime_file_menu(root)
+        labels = self.runtime_menu_labels(file_menu)
+
+        self.assertIn("Recent Sources", labels)
+        self.assertIn("Clear Recent Sources", labels)
+        self.assertIn("Batch Translate Existing Results...", labels)
+        command_index = next(
+            index for index in range(file_menu.index("end") + 1)
+            if file_menu.type(index) == "command"
+            and file_menu.entrycget(index, "label") == "Batch Translate Existing Results..."
+        )
+        with patch.object(gui, "process_request") as process:
+            file_menu.invoke(command_index)
+
+        process.assert_not_called()
+        self.assertIsNotNone(app.existing_results_dialog)
+        self.assertTrue(app.existing_results_dialog.winfo_exists())
+        app.existing_results_dialog.destroy()
+        app.existing_results_dialog = None
+
+    def test_runtime_batch_mode_exposes_secondary_existing_results_action(self):
+        _root, app = self.make_runtime_app()
+        app.run_mode.set("batch")
+        app._set_run_mode()
+
+        self.assertEqual("grid", app.batch_frame.winfo_manager())
+        self.assertEqual("grid", app.existing_results_batch_button.winfo_manager())
+        self.assertEqual("Translate Existing Results...", app.existing_results_batch_button.cget("text"))
+        self.assertEqual(
+            "Translate previously processed VideoText results without rerunning OCR.",
+            app.existing_results_batch_help.cget("text"),
+        )
+
+    def test_runtime_menu_and_batch_button_invoke_the_same_dialog_method(self):
+        with patch.object(gui.VideoTextApp, "_show_existing_results_translation") as open_dialog:
+            root, app = self.make_runtime_app()
+            file_menu = self.runtime_file_menu(root)
+            command_index = next(
+                index for index in range(file_menu.index("end") + 1)
+                if file_menu.type(index) == "command"
+                and file_menu.entrycget(index, "label") == "Batch Translate Existing Results..."
+            )
+            file_menu.invoke(command_index)
+            app.existing_results_batch_button.invoke()
+
+        self.assertEqual(2, open_dialog.call_count)
+
+    def test_runtime_dialog_labels_completed_videotext_result_folders(self):
+        _root, app = self.make_runtime_app()
+        with patch.object(gui, "process_request") as process:
+            app._show_existing_results_translation()
+        labels = [
+            child.cget("text") for child in app.existing_results_dialog.winfo_children()
+            if isinstance(child, ttk.LabelFrame)
+        ]
+        process.assert_not_called()
+        self.assertIn("Completed VideoText Result Folders", labels)
+        app.existing_results_dialog.destroy()
+        app.existing_results_dialog = None
 
     def make_existing_selection_app(self):
         app = SimpleNamespace(

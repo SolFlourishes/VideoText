@@ -2,7 +2,7 @@
 
 **Project:** VideoText
 
-**Current Release:** Version 1.6.0
+**Current Release:** Version 1.7.1
 
 ---
 
@@ -74,7 +74,7 @@ Every processing stage adds information rather than replacing previous work.
 
 ---
 
-# Current Capabilities (Version 1.6)
+# Current Capabilities (Version 1.7.1)
 
 ## OCR
 
@@ -166,14 +166,35 @@ Create a human-centered translation workflow.
 - Existing translation grouping modes and CSV/Markdown compatibility
 - Provider switching that removes unsupported locale selections
 
+---
+
+# Version 1.7.1
+
+## Theme
+
+Batch Translate Existing Results
+
+### Goal
+
+Translate previously processed VideoText results into additional target
+locales without repeating video processing or OCR.
+
+### Delivered Features
+
+- Dedicated File-menu and Batch Processing entry points
+- Ordered selection of multiple completed VideoText result folders
+- Read-only Presentation reconstruction from trusted `reading_order.pkl` caches
+- Existing Local Translation and OpenAI Cloud provider support
+- Multiple target locales and all existing output grouping modes
+- Existing translation provenance, review intelligence, and exports
+- Separate uniquely named output workspaces with unchanged source result folders
+- Invalid, duplicate, and partial-failure reporting without OCR fallback
+
 ### Deferred Translation Work
 
 - Reviewed-workbook import and persistent human review tracking
 - Possible use of verified translations as quality-evaluation/reference data
 - Dedicated translation review workspace
-- Batch Translate Existing Results using completed run folders or trusted
-  `reading_order.pkl` checkpoints, skipping OCR across multiple results
-- Re-translation with another language, provider, or model without repeating OCR
 - Broader validated local-language support
 - True offline regional localization, including Canadian English (`en-CA`)
 - Glossaries and preferred terminology

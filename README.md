@@ -1,6 +1,6 @@
 # VideoText
 
-VideoText 1.7.0 converts presentation and lecture videos into structured,
+VideoText 1.7.1 converts presentation and lecture videos into structured,
 editable OCR text and can optionally create machine-translation review
 artifacts. OCR remains the canonical evidence: translation is downstream,
 never overwrites OCR, and always requires human review.
@@ -35,6 +35,13 @@ Notes fields. Human review states are **Unreviewed**, **Accepted**, **Edited /
 Verified**, and **Flagged**. Translation Failed results cannot be promoted to a
 valid reviewed translation through review metadata.
 
+Version 1.7.1 adds **Batch Translate Existing Results**. Organizations can
+select multiple completed VideoText result folders and create translations for
+additional target locales from their preserved reading-order caches. OCR is
+not rerun, source result folders remain unchanged, and all new artifacts are
+written beneath a separate translation workspace. Only reuse completed results
+from a trusted source or computer.
+
 ## Supported local locales
 
 The compatible optional Local Translation Pack supports English source text to:
@@ -52,7 +59,7 @@ OpenAI Cloud, not the current local pack.
 
 ## Download and run
 
-Download `VideoText-1.7.0-Windows-Portable.zip` from the GitHub release, extract
+Download `VideoText-1.7.1-Windows-Portable.zip` from the GitHub release, extract
 the entire archive to a user-writable folder, and run `VideoText.exe`. No
 administrator privileges or installer are required.
 

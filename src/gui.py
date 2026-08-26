@@ -346,8 +346,26 @@ class VideoTextApp(ttk.Frame):
         self._add_batch_button("Add Folder...", self._add_batch_folder, 1, 1)
         self._add_batch_button("Remove Selected", self._remove_selected_batch_video, 1, 2)
         self._add_batch_button("Clear List", self._clear_batch_list, 1, 3)
+        ttk.Separator(self.batch_frame, orient="horizontal").grid(
+            row=2, column=0, columnspan=4, sticky="ew", pady=(10, 6),
+        )
+        self.existing_results_batch_help = ttk.Label(
+            self.batch_frame,
+            text="Translate previously processed VideoText results without rerunning OCR.",
+        )
+        self.existing_results_batch_help.grid(
+            row=3, column=0, columnspan=4, sticky="w", pady=(0, 4),
+        )
+        self.existing_results_batch_button = ttk.Button(
+            self.batch_frame,
+            text="Translate Existing Results...",
+            command=self._show_existing_results_translation,
+        )
+        self.existing_results_batch_button.grid(
+            row=4, column=0, columnspan=4, sticky="w", pady=(0, 8),
+        )
         self.batch_excel_frame = ttk.LabelFrame(self.batch_frame, text="Excel output", padding=6)
-        self.batch_excel_frame.grid(row=2, column=0, columnspan=4, sticky="w")
+        self.batch_excel_frame.grid(row=5, column=0, columnspan=4, sticky="w")
         per_video_excel = ttk.Radiobutton(
             self.batch_excel_frame,
             text="One workbook per video",
@@ -1310,7 +1328,9 @@ class VideoTextApp(ttk.Frame):
             wraplength=700,
         ).grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 8))
 
-        selection_frame = ttk.LabelFrame(dialog, text="Completed Result Folders", padding=8)
+        selection_frame = ttk.LabelFrame(
+            dialog, text="Completed VideoText Result Folders", padding=8,
+        )
         selection_frame.grid(row=1, column=0, sticky="nsew", padx=12, pady=4)
         selection_frame.columnconfigure(0, weight=1)
         selection_frame.rowconfigure(0, weight=1)
