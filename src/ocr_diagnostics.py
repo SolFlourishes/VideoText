@@ -11,7 +11,7 @@ from app_info import APP_NAME, APP_RELEASE
 from config import OCR_LANGUAGE
 
 
-DIAGNOSTIC_SCHEMA_VERSION = "1.0"
+DIAGNOSTIC_SCHEMA_VERSION = "1.1"
 
 
 class DiagnosticError(RuntimeError):
@@ -73,6 +73,7 @@ class OCRDiagnosticSlide:
     contributing_frame_indices: tuple[int, ...]
     pre_consolidation_text: str
     post_consolidation_text: str
+    promotion_assessments: tuple[dict[str, Any], ...] = ()
 
 
 def _box_values(box: Any) -> list[float]:
@@ -189,7 +190,7 @@ class OCRDiagnosticsWriter:
             diagnostic_frame.reconstructed_text = "\n".join(diagnostic_frame.paragraphs)
 
     def capture_slides(self, slides) -> None:
-        """Record only the existing build and canonical paragraph text."""
+        """Record build text, canonical text, and derived promotion decisions."""
 
         self.slides = []
         for slide in slides:
@@ -203,6 +204,24 @@ class OCRDiagnosticsWriter:
                 contributing_frame_indices=frame_indices,
                 pre_consolidation_text="\n\n".join(build.final_text for build in slide.builds),
                 post_consolidation_text="\n".join(paragraph.text for paragraph in slide.paragraphs),
+                promotion_assessments=tuple(
+                    {
+                        "text": record.text,
+                        "disposition": record.assessment.disposition.value,
+                        "reasons": [reason.value for reason in record.assessment.reasons],
+                        "observed_scripts": [script.value for script in record.assessment.observed_scripts],
+                        "context": {
+                            "confidence": record.context.confidence,
+                            "region_count": record.context.region_count,
+                            "bounding_box": record.context.bounding_box,
+                            "frame_dimensions": record.context.frame_dimensions,
+                            "observation_count": record.context.observation_count,
+                        },
+                        "source_frame_number": record.source_frame_number,
+                        "included_in_presentation": record.included_in_presentation,
+                    }
+                    for record in getattr(slide, "promotion_records", ())
+                ),
             ))
             for frame_index in frame_indices:
                 if frame_index in self.frames:
@@ -354,6 +373,7 @@ class OCRDiagnosticsWriter:
                 "contributing_frame_indices": list(slide.contributing_frame_indices),
                 "pre_consolidation_text": slide.pre_consolidation_text,
                 "post_consolidation_text": slide.post_consolidation_text,
+                "promotion_assessments": list(slide.promotion_assessments),
             }
             slide_path.write_text(json.dumps(slide_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             _write_text(pre_path, slide.pre_consolidation_text)
