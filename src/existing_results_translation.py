@@ -191,6 +191,7 @@ def run_existing_results_translation(
     *,
     source_language: str = "en",
     progress_callback: Callable[[int, int], None] | None = None,
+    batch_name: str | None = None,
 ) -> TranslationApplicationResult:
     """Translate all prepared sources once through the existing application stack."""
 
@@ -211,4 +212,5 @@ def run_existing_results_translation(
         formats,
         preparation.output_workspace / "translations",
         progress_callback=progress_callback,
+        batch_name=batch_name,
     )

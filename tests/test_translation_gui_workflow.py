@@ -196,6 +196,7 @@ class TranslationGUIWorkflowTests(unittest.TestCase):
             existing_formats={"excel": Variable(True), "csv": Variable(False)},
             existing_grouping=Variable(TranslationOutputGrouping.BY_SOURCE.value),
             existing_model=Variable("Recommended"),
+            existing_batch_name=Variable(""),
             existing_status=Variable(""),
             existing_local_provider_control=Widget(),
             local_translation_availability=SimpleNamespace(
@@ -237,6 +238,21 @@ class TranslationGUIWorkflowTests(unittest.TestCase):
 
         resolve.assert_called_once_with("Recommended")
         self.assertEqual("vetted-model", settings[4])
+
+    def test_existing_results_settings_sanitize_and_return_batch_name(self):
+        app = self.make_existing_settings_app()
+        app.existing_batch_name.set(' Mod<2>:"/\\|?*... ')
+
+        settings = gui.VideoTextApp._existing_results_settings(app)
+
+        self.assertEqual("Mod 2", settings[5])
+
+    def test_existing_results_dialog_exposes_optional_batch_name_guidance(self):
+        source = Path(gui.__file__).read_text(encoding="utf-8")
+
+        self.assertIn('text="Batch Name (optional)"', source)
+        self.assertIn("Used to distinguish generated translation files.", source)
+        self.assertIn("textvariable=self.existing_batch_name", source)
 
     @staticmethod
     def preparation(valid=1, invalid=0, duplicates=0):
@@ -320,10 +336,11 @@ class TranslationGUIWorkflowTests(unittest.TestCase):
         ):
             gui.VideoTextApp._run_existing_results_worker(
                 app, preparation, "local", ("pt-BR",),
-                TranslationOutputGrouping.BY_SOURCE, ("excel",), None, None,
+                TranslationOutputGrouping.BY_SOURCE, ("excel",), None, None, "Mod 2",
             )
         process.assert_not_called()
         run_service.assert_called_once()
+        self.assertEqual("Mod 2", run_service.call_args.kwargs["batch_name"])
         self.assertEqual("existing_results_progress", app.message_queue.get_nowait()[0])
         self.assertEqual("existing_results_complete", app.message_queue.get_nowait()[0])
 

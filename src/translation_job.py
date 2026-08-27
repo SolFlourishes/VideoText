@@ -94,6 +94,7 @@ class TranslationOutputPlan:
     filename_template: str | None = None
     sheet_name_template: str | None = None
     collision_policy: OutputCollisionPolicy = OutputCollisionPolicy.SUFFIX
+    batch_name: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.grouping, TranslationOutputGrouping):
@@ -104,6 +105,8 @@ class TranslationOutputPlan:
         _validate_template(self.sheet_name_template, "sheet_name_template")
         if not isinstance(self.collision_policy, OutputCollisionPolicy):
             raise ValueError("collision_policy must be an OutputCollisionPolicy.")
+        if self.batch_name is not None and not isinstance(self.batch_name, str):
+            raise ValueError("batch_name must be a string or None.")
 
 
 @dataclass(frozen=True)

@@ -11,7 +11,11 @@ from typing import Iterable, Mapping
 
 from translation_contract import TranslationResult, TranslationSourceType, TranslationStatus
 from translation_job import TranslationJob
-from translation_output_plan import TranslationOutputLayout, language_display_name
+from translation_output_plan import (
+    TranslationOutputLayout,
+    language_display_name,
+    sanitize_filename_label,
+)
 from translation_review import (HumanTranslationReview, TranslationReviewAssessment,
     TranslationReviewStatus, assess_translation_results, resolve_reviewed_translation,
     review_status_display)
@@ -237,8 +241,11 @@ def export_translation_markdown(records: Iterable[TranslationExportRecord], outp
     return _write_new_text(output_path, "\n".join(content))
 
 
-def _text_export_path(directory: Path, job_id: str, extension: str) -> Path:
-    stem = _SAFE_FILENAME.sub("-", job_id).strip(". ") or "translation-export"
+def _text_export_path(directory: Path, job: TranslationJob, extension: str) -> Path:
+    batch_name = sanitize_filename_label(job.output_plan.batch_name)
+    if batch_name:
+        return directory / f"{batch_name} - Translation{extension}"
+    stem = _SAFE_FILENAME.sub("-", job.job_id).strip(". ") or "translation-export"
     return directory / f"{stem}-translation{extension}"
 
 
@@ -260,9 +267,9 @@ def export_translation_outputs(job: TranslationJob, output_layout: TranslationOu
     paths: dict[str, tuple[Path, ...]] = {}
     for format_name in requested:
         if format_name == "csv":
-            paths[format_name] = (export_translation_csv(records, _text_export_path(directory, job.job_id, ".csv")),)
+            paths[format_name] = (export_translation_csv(records, _text_export_path(directory, job, ".csv")),)
         elif format_name == "markdown":
-            paths[format_name] = (export_translation_markdown(records, _text_export_path(directory, job.job_id, ".md")),)
+            paths[format_name] = (export_translation_markdown(records, _text_export_path(directory, job, ".md")),)
         else:
             result: TranslationWorkbookWriteResult = populate_translation_workbooks(
                 job, output_layout, rows, results, directory, calculated_assessments)

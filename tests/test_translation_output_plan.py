@@ -9,12 +9,16 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from translation_job import TranslationJob, TranslationOutputGrouping, TranslationOutputPlan, TranslationSourceItem
-from translation_output_plan import language_display_name, plan_translation_output
+from translation_output_plan import (
+    language_display_name,
+    plan_translation_output,
+    sanitize_filename_label,
+)
 
 
-def job(grouping: TranslationOutputGrouping, sources=("Video A", "Video B"), languages=("es", "de")) -> TranslationJob:
+def job(grouping: TranslationOutputGrouping, sources=("Video A", "Video B"), languages=("es", "de"), batch_name=None) -> TranslationJob:
     items = tuple(TranslationSourceItem(f"video-{index}", name, f"project:{index}", index) for index, name in enumerate(sources))
-    return TranslationJob("batch-1", items, "en", tuple(languages), "argos", TranslationOutputPlan(grouping))
+    return TranslationJob("batch-1", items, "en", tuple(languages), "argos", TranslationOutputPlan(grouping, batch_name=batch_name))
 
 
 class TranslationOutputPlanTests(unittest.TestCase):
@@ -47,3 +51,37 @@ class TranslationOutputPlanTests(unittest.TestCase):
         planned = plan_translation_output(job(TranslationOutputGrouping.SEPARATE))
         self.assertEqual("batch-1", planned.job_id)
         self.assertEqual("batch-1:workbook:source:video-0:language:es", planned.workbooks[0].workbook_id)
+
+    def test_optional_batch_name_prefixes_every_grouping_without_changing_blank_names(self) -> None:
+        cases = {
+            TranslationOutputGrouping.BY_LANGUAGE: (
+                "Mod 2 - Spanish.xlsx", "Mod 2 - German.xlsx",
+            ),
+            TranslationOutputGrouping.BY_SOURCE: (
+                "Mod 2 - Video A.xlsx", "Mod 2 - Video B.xlsx",
+            ),
+            TranslationOutputGrouping.COMBINED: (
+                "Mod 2 - Translation Batch.xlsx",
+            ),
+            TranslationOutputGrouping.SEPARATE: (
+                "Mod 2 - Video A - Spanish.xlsx",
+                "Mod 2 - Video A - German.xlsx",
+                "Mod 2 - Video B - Spanish.xlsx",
+                "Mod 2 - Video B - German.xlsx",
+            ),
+        }
+        for grouping, expected in cases.items():
+            with self.subTest(grouping=grouping):
+                labeled = plan_translation_output(job(grouping, batch_name="Mod 2"))
+                blank = plan_translation_output(job(grouping, batch_name="  "))
+                original = plan_translation_output(job(grouping))
+                self.assertEqual(expected, tuple(book.filename for book in labeled.workbooks))
+                self.assertEqual(
+                    tuple(book.filename for book in original.workbooks),
+                    tuple(book.filename for book in blank.workbooks),
+                )
+
+    def test_batch_name_sanitization_is_windows_safe_and_can_be_empty(self) -> None:
+        self.assertEqual("Mod 2", sanitize_filename_label(' Mod<2>:"/\\|?*... '))
+        self.assertIsNone(sanitize_filename_label('<>:"/\\|?*... '))
+        self.assertEqual("CON Translation", sanitize_filename_label("CON"))
