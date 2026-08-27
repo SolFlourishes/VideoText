@@ -2,7 +2,7 @@
 
 **Project:** VideoText
 
-**Current Release:** Version 1.7.1
+**Current Release:** Version 1.7.2
 
 ---
 
@@ -74,7 +74,7 @@ Every processing stage adds information rather than replacing previous work.
 
 ---
 
-# Current Capabilities (Version 1.7.1)
+# Current Capabilities (Version 1.7.2)
 
 ## OCR
 
@@ -115,6 +115,7 @@ Every processing stage adds information rather than replacing previous work.
 - OCR diagnostics
 - OCR preprocessing experiments
 - Confidence statistics
+- OCR promotion audit records and script-observation warnings
 
 ---
 
@@ -190,6 +191,39 @@ locales without repeating video processing or OCR.
 - Separate uniquely named output workspaces with unchanged source result folders
 - Invalid, duplicate, and partial-failure reporting without OCR fallback
 
+---
+
+# Version 1.7.2
+
+## Theme
+
+OCR Output Quality & Script Awareness
+
+### Goal
+
+Produce cleaner readable Presentation text while retaining uncertain OCR
+evidence for audit and review.
+
+### Delivered Features
+
+- A derived promotion layer separating preserved OCR evidence from readable
+  Presentation paragraphs
+- Conservative weak-fragment filtering requiring multiple observable signals
+- Protection for short labels, numbers, years, percentages, and formulas
+- Unicode writing-system observation and Review Recommended handling for
+  out-of-profile recognized scripts without claiming language identification
+- Promotion audit records in OCR diagnostics schema 1.1
+- Consistent promotion behavior for fresh processing, reading-order replay, and
+  Batch Translate Existing Results, with conservative legacy-cache fallback
+- Optional sanitized Batch Name labels for existing-results translation outputs
+
+### Deferred OCR Understanding Work
+
+- Image-level script identification and vision-assisted interpretation
+- Automatic OCR-language/model selection and multilingual source OCR profiles
+- Chart and diagram relationships or semantics
+- A GUI for restoring or reviewing withheld OCR evidence
+
 ### Deferred Translation Work
 
 - Reviewed-workbook import and persistent human review tracking
@@ -222,6 +256,9 @@ Use AI to enrich OCR evidence without replacing deterministic OCR.
 - Structured slide understanding
 - Accessibility annotations
 - Optional AI summaries
+- Image-level script identification
+- Vision-assisted chart and diagram relationship interpretation
+- Multilingual OCR/source-language assistance where validated
 
 ### Out of Scope
 

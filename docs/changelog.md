@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.7.2
+
+### OCR Output Quality & Script Awareness
+
+### Added
+
+- A derived OCR promotion assessment separating preserved OCR evidence from
+  text included in readable Presentation output
+- Conservative weak-fragment filtering that requires multiple observable
+  signals rather than shortness, confidence, or single-frame occurrence alone
+- Protection for compact labels, numbers, years, percentages, and formulas
+- Unicode writing-system observation with review warnings for recognized text
+  outside the active OCR recognition profile
+- Promotion audit details in OCR diagnostics schema 1.1
+- An optional sanitized Batch Name for Batch Translate Existing Results output
+  filenames
+
+### Compatibility and validation
+
+- Raw OCR, reconstructed reading-order evidence, confidence values, and source
+  checkpoints remain unchanged. Missing legacy context defaults to preservation.
+- Fresh processing, reading-order replay, and Batch Translate Existing Results
+  share the same Presentation-promotion logic without requiring OCR to rerun.
+- Real preserved checkpoints confirmed that a weak isolated fragment was
+  withheld while years and percentages remained promoted. High-confidence
+  fragment-like text remained visible by conservative design.
+- Long Latin gibberish produced from imagery in another writing system remained
+  promoted but received Review Recommended for weak OCR evidence. Unicode text
+  inspection cannot recover the original visual script in that situation.
+
+### Limitations
+
+- The assessment is not a calibrated confidence score and does not identify
+  language.
+- Image-level script identification, automatic OCR-language/model selection,
+  multilingual source OCR configuration, chart semantics, and a
+  restore-withheld-content GUI are not included.
+- OCR diagnostics and preserved raw evidence remain the audit path.
+
 ## 1.7.1
 
 ### Batch Translate Existing Results
