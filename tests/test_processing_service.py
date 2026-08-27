@@ -10,13 +10,15 @@ from pathlib import Path
 import unittest
 from unittest.mock import MagicMock, patch
 
+import numpy as np
+
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import gui
 import main
 import processing_service
-from models import CandidateFrame, Presentation, TextParagraph, TextType
+from models import CandidateFrame, OCRResult, Presentation, TextLine, TextParagraph, TextType
 from ocr_diagnostics import DiagnosticError, DiagnosticOptions
 from processing_service import (
     CheckpointLoadError,
@@ -58,6 +60,21 @@ class ProcessingServiceTests(unittest.TestCase):
             image=None,
             difference_score=0.0,
             text_paragraphs=[TextParagraph(text, text_type=TextType.BODY)],
+        )
+
+    def assessed_reading_order_frame(self, text: str = "VI M") -> CandidateFrame:
+        box = np.array([10, 10, 30, 20], dtype=float)
+        line = TextLine(text, 10, 20, 10, 30, 0.65, TextType.BODY)
+        result = OCRResult(text, 0.65, box)
+        return CandidateFrame(
+            frame_number=12,
+            timestamp=2.5,
+            image=np.zeros((1080, 1920, 3), dtype=np.uint8),
+            difference_score=0.0,
+            ocr_results=[result],
+            text_lines=[line],
+            text_paragraphs=[TextParagraph(text, [line], TextType.BODY)],
+            raw_ocr_results=[result],
         )
 
     def resume_patches(self):
@@ -257,6 +274,54 @@ class ProcessingServiceTests(unittest.TestCase):
         self.assertIsInstance(presentation, Presentation)
         self.assertEqual(original_bytes, checkpoint.read_bytes())
         self.assertEqual(paths_before, {path.relative_to(self.root) for path in self.root.rglob("*")})
+
+    def test_read_only_reconstruction_applies_promotion_without_ocr_or_writes(self):
+        source = self.assessed_reading_order_frame()
+        checkpoint = self.checkpoint("reading_order.pkl", [source])
+        original_bytes = checkpoint.read_bytes()
+
+        prohibited = (
+            "process_request", "create_replay_run_directory", "save_cache",
+            "export_all", "resolve_video_source", "open_video", "analyze_video",
+            "perform_ocr", "reconstruct_reading_order",
+        )
+        with ExitStack() as stack:
+            for name in prohibited:
+                stack.enter_context(
+                    patch.object(processing_service, name, side_effect=AssertionError(name))
+                )
+            _, presentation = reconstruct_presentation_from_reading_order(checkpoint)
+
+        self.assertEqual(presentation.slides[0].paragraphs, [])
+        record = presentation.slides[0].promotion_records[0]
+        self.assertFalse(record.included_in_presentation)
+        self.assertEqual(record.text, "VI M")
+        self.assertEqual(checkpoint.read_bytes(), original_bytes)
+
+    def test_fresh_and_reading_order_reconstruction_share_promotion_logic(self):
+        fresh = processing_service._create_presentation(
+            [self.assessed_reading_order_frame()],
+            {"processing_mode": ProcessingMode.FULL_VIDEO.value},
+        )
+        checkpoint = self.checkpoint(
+            "reading_order.pkl",
+            [self.assessed_reading_order_frame()],
+        )
+
+        with (
+            patch.object(processing_service, "perform_ocr") as perform_ocr,
+            patch.object(processing_service, "reconstruct_reading_order") as reading_order,
+        ):
+            _, replay = reconstruct_presentation_from_reading_order(checkpoint)
+
+        self.assertEqual(fresh.slides[0].paragraphs, [])
+        self.assertEqual(replay.slides[0].paragraphs, [])
+        self.assertEqual(
+            fresh.slides[0].promotion_records[0].assessment,
+            replay.slides[0].promotion_records[0].assessment,
+        )
+        perform_ocr.assert_not_called()
+        reading_order.assert_not_called()
 
     def test_missing_checkpoint_has_clear_validation_error(self):
         missing_run = self.root / "missing_run"

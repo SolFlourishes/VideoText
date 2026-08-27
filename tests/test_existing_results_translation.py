@@ -382,13 +382,14 @@ class ExistingResultsTranslationTests(unittest.TestCase):
                 )
             result = run_existing_results_translation(
                 preparation, "immutable-job", FakeProvider(), ("fr",),
-                TranslationOutputGrouping.BY_SOURCE, ("csv",),
+                TranslationOutputGrouping.BY_SOURCE, ("csv",), batch_name="Mod 2",
             )
 
         self.assertEqual(original_bytes, checkpoint.read_bytes())
         self.assertEqual("unchanged", marker.read_text(encoding="utf-8"))
         self.assertEqual(source_paths_before, {path.relative_to(run) for path in run.rglob("*")})
         self.assertTrue(result.export_result.paths["csv"][0].is_relative_to(preparation.output_workspace))
+        self.assertEqual("Mod 2 - Translation.csv", result.export_result.paths["csv"][0].name)
 
     def test_orchestration_refuses_empty_preparation_and_reuses_locale_validation(self):
         empty = ExistingResultsTranslationPreparation((), (), (), (), None)

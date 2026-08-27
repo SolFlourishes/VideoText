@@ -12,8 +12,9 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from models import OCRResult, TextLine, TextParagraph, TextType
+from models import CandidateFrame, OCRResult, TextLine, TextParagraph, TextType
 from ocr_diagnostics import DiagnosticError, DiagnosticOptions, OCRDiagnosticsWriter
+from slide_consolidator import consolidate_slides
 
 
 def frame(frame_index=25):
@@ -156,6 +157,40 @@ class OCRDiagnosticsTests(unittest.TestCase):
 
         np.testing.assert_array_equal(source.ocr_results[0].bounding_box, original_box)
         self.assertEqual(source.ocr_results[0].text, original_text)
+
+    def test_slide_diagnostics_explain_withheld_promotion(self):
+        text = "VI M"
+        box = np.array([10, 10, 20, 15], dtype=float)
+        result = OCRResult(text, 0.65, box)
+        line = TextLine(text, 10, 15, 10, 20, 0.65, TextType.BODY)
+        source = CandidateFrame(
+            frame_number=25,
+            timestamp=5.0,
+            image=np.zeros((1080, 1920, 3), dtype=np.uint8),
+            difference_score=0.0,
+            ocr_results=[result],
+            raw_ocr_results=[result],
+            text_lines=[line],
+            text_paragraphs=[TextParagraph(text, [line], TextType.BODY)],
+        )
+        writer = self.writer()
+        writer.capture_ocr_frames([source])
+        writer.capture_reconstructed_frames([source])
+        writer.capture_slides(consolidate_slides([source]))
+        writer.write()
+
+        slide_data = json.loads(
+            (self.output / "slides" / "slide_0001" / "slide.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assessment = slide_data["promotion_assessments"][0]
+        self.assertEqual(assessment["text"], text)
+        self.assertEqual(assessment["disposition"], "Not Promoted / Fragment")
+        self.assertFalse(assessment["included_in_presentation"])
+        self.assertIn("Fragment-like Structure", assessment["reasons"])
+        self.assertEqual(assessment["context"]["confidence"], 0.65)
+        self.assertEqual(slide_data["post_consolidation_text"], "")
 
 
 if __name__ == "__main__":

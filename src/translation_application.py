@@ -35,11 +35,12 @@ class TranslationApplicationResult:
 def run_translation_job(job_id: str, sources: Iterable[TranslationApplicationSource], source_language: str,
                         target_languages: tuple[str, ...], provider: TranslationProvider,
                         grouping: TranslationOutputGrouping, formats: tuple[str, ...], output_directory: Path,
-                        progress_callback: Callable[[int, int], None] | None = None) -> TranslationApplicationResult:
+                        progress_callback: Callable[[int, int], None] | None = None,
+                        batch_name: str | None = None) -> TranslationApplicationResult:
     """Select source evidence, translate sequentially, and export without OCR work."""
     ordered_sources = tuple(sources)
     job = TranslationJob(job_id, tuple(value.source_item for value in ordered_sources), source_language,
-        target_languages, provider.provider_id, TranslationOutputPlan(grouping))
+        target_languages, provider.provider_id, TranslationOutputPlan(grouping, batch_name=batch_name))
     records: list[TranslationSourceRecord] = []
     row_context: dict[str, tuple[str, int | str, int]] = {}
     for source in ordered_sources:

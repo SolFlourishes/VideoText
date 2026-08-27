@@ -171,6 +171,24 @@ class TranslationExportTests(unittest.TestCase):
             with self.assertRaisesRegex(FileExistsError, "already exists"):
                 export_translation_outputs(current, layout, rows, results, directory, ("csv",))
 
+    def test_batch_name_is_consistent_across_csv_markdown_and_excel(self) -> None:
+        current, rows, results = evidence(failed=False)
+        current = replace(
+            current,
+            output_plan=replace(current.output_plan, batch_name="Mod 2"),
+        )
+        layout = plan_translation_output(current)
+        with tempfile.TemporaryDirectory() as directory:
+            summary = export_translation_outputs(
+                current, layout, rows, results, directory,
+                ("csv", "markdown", "excel"),
+            )
+            self.assertEqual("Mod 2 - Translation.csv", summary.paths["csv"][0].name)
+            self.assertEqual("Mod 2 - Translation.md", summary.paths["markdown"][0].name)
+            self.assertEqual("Mod 2 - Translation Batch.xlsx", summary.paths["excel"][0].name)
+            with self.assertRaisesRegex(FileExistsError, "already exists"):
+                export_translation_outputs(current, layout, rows, results, directory, ("csv",))
+
     def test_duplicate_missing_and_mismatched_evidence_are_rejected(self) -> None:
         current, rows, results = evidence()
         with self.assertRaisesRegex(ValueError, "Duplicate translation result"):

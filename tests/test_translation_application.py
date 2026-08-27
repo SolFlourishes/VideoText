@@ -1,7 +1,9 @@
 from pathlib import Path
 import sys, tempfile, unittest
+import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from models import Presentation, Slide, TextParagraph, TextType
+from models import CandidateFrame, OCRResult, Presentation, Slide, TextLine, TextParagraph, TextType
+from slide_consolidator import consolidate_slides
 from translation_application import TranslationApplicationSource, run_translation_job
 from translation_contract import TranslationResult, TranslationStatus
 from translation_job import TranslationOutputGrouping, TranslationSourceItem
@@ -16,6 +18,29 @@ class FakeProvider:
     def translate(self, request): return TranslationResult(request, TranslationStatus.SUCCESS, "fake", "translated")
 
 class TranslationApplicationTests(unittest.TestCase):
+ def test_translation_consumes_only_promoted_presentation_paragraphs(self):
+  weak_line=TextLine("VI M",10,20,10,30,0.65,TextType.BODY)
+  protected_line=TextLine("AI",30,40,10,30,0.65,TextType.BODY)
+  results=[
+   OCRResult("VI M",0.65,np.array([10,10,30,20],dtype=float)),
+   OCRResult("AI",0.65,np.array([10,30,30,40],dtype=float)),
+  ]
+  frame=CandidateFrame(1,0.0,np.zeros((1080,1920,3),dtype=np.uint8),0.0,
+   ocr_results=results,text_lines=[weak_line,protected_line],
+   text_paragraphs=[TextParagraph("VI M",[weak_line],TextType.BODY),TextParagraph("AI",[protected_line],TextType.BODY)],
+   raw_ocr_results=results)
+  presentation=Presentation({},consolidate_slides([frame]))
+  seen=[]
+  class RecordingProvider(FakeProvider):
+   def translate(self,request):
+    seen.append(request.source_text)
+    return super().translate(request)
+  source=TranslationApplicationSource(TranslationSourceItem("video-a","Video A","project:a",0),presentation)
+  with tempfile.TemporaryDirectory() as directory:
+   run_translation_job("job",(source,),"en",("es",),RecordingProvider(),TranslationOutputGrouping.BY_SOURCE,("csv",),Path(directory))
+  self.assertEqual(["AI"],seen)
+  self.assertEqual("VI M",presentation.slides[0].promotion_records[0].text)
+
  def test_cloud_model_is_centralized_without_a_bundled_credential(self):
   self.assertEqual("gpt-4.1-mini", OPENAI_TRANSLATION_MODEL)
   self.assertEqual(OPENAI_TRANSLATION_MODEL,resolve_vetted_openai_model(RECOMMENDED_OPENAI_MODEL_LABEL))

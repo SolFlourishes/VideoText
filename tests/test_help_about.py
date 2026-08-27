@@ -96,6 +96,39 @@ class HelpAboutTests(unittest.TestCase):
         self.assertIn("do not rewrite or correct", content)
         self.assertIn("low-confidence regions", content)
 
+    def test_user_guidance_explains_ocr_promotion_and_script_limits(self):
+        guide = get_how_to_use_text().lower()
+        accuracy = get_accuracy_validation_text().lower()
+        combined = " ".join((guide + "\n" + accuracy).split())
+
+        for expected in (
+            "preserves raw ocr evidence separately",
+            "weak fragments may be withheld",
+            "withheld evidence is not deleted",
+            "ocr diagnostics",
+            "short text is not automatically treated as junk",
+            "numbers, years, percentages, formulas",
+            "flagged for review rather than removed",
+            "does not identify language",
+            "optimized for english and latin-script recognition",
+            "may be missed or misrecognized",
+            "diagnostic indicators",
+            "not calibrated guarantees",
+            "not all ocr gibberish",
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, combined)
+
+    def test_about_summarizes_ocr_quality_behavior_without_overclaiming(self):
+        content = get_about_text().lower()
+
+        self.assertIn("conservative checks", content)
+        self.assertIn("weak fragments", content)
+        self.assertIn("raw ocr evidence is preserved", content)
+        self.assertIn("diagnostics can explain withheld text", content)
+        self.assertIn("recommend review", content)
+        self.assertIn("rather than identifying language", content)
+
     def test_accuracy_validation_topic_covers_expected_sections(self):
         content = get_accuracy_validation_text()
 
@@ -119,7 +152,7 @@ class HelpAboutTests(unittest.TestCase):
 
     def test_shared_application_metadata_is_available_for_about_and_packaging(self):
         self.assertEqual(APP_NAME, "VideoText")
-        self.assertEqual(APP_RELEASE, "1.7.1")
+        self.assertEqual(APP_RELEASE, "1.7.2")
         self.assertEqual(APP_STATUS, "Release")
         self.assertEqual(APP_COPYRIGHT, "© 2026 Sol Roberts-Lieb")
 

@@ -66,6 +66,25 @@ Confidence statistics are descriptive only. They do not rewrite or correct
 OCR text. Review low-confidence regions against the source video when accuracy
 matters.
 
+Readable OCR Output
+
+VideoText preserves raw OCR evidence separately from the readable Presentation
+text. Weak fragments may be withheld from readable exports when several
+observable signals agree that the recognition is unreliable. Withheld evidence
+is not deleted, and optional OCR diagnostics record the decision and reasons.
+
+Short text is not automatically treated as junk. Compact content such as
+numbers, years, percentages, formulas, and short labels receives conservative
+protection. Text recognized in a writing system outside the active OCR profile
+is kept and may be flagged for review rather than removed.
+
+Script observation describes Unicode writing systems in recognized output; it
+does not identify language or determine the visual script when OCR returned the
+wrong characters. The current OCR configuration is optimized for English and
+Latin-script recognition, so other writing systems may be missed or
+misrecognized. OCR confidence and warning signals are diagnostic indicators,
+not calibrated guarantees, and not all OCR gibberish can be detected safely.
+
 Batch Processing
 
 Batch Processing handles multiple videos in one selected output location. Each video receives its own workspace, processing continues after an individual failure, and a batch log records the outcome of every item.
@@ -147,6 +166,10 @@ VideoText supports high-quality extraction of visible text from presentation-sty
 Factors That Affect Accuracy
 
 Examples include low video resolution, small fonts, motion blur, fast animations, decorative fonts, poor contrast, heavy compression, partially obscured text, complex diagrams, and handwritten content.
+
+OCR Evidence and Readable Output
+
+VideoText preserves raw OCR evidence separately from readable Presentation text. Conservative checks may withhold weak fragments only when multiple observable signals agree; the evidence remains available for diagnostics. Short labels, numbers, years, percentages, and formulas are not automatically discarded. Writing-system observations may recommend review, but they do not identify language. The current OCR configuration is optimized for English and Latin-script recognition, and text in other writing systems may be missed or misrecognized.
 
 Validation
 
@@ -236,6 +259,9 @@ def get_about_sections() -> tuple[tuple[str, tuple[str, ...]], ...]:
             (
                 "â€¢ OCR Quality statistics describe the original OCR evidence.",
                 "â€¢ Low-confidence regions are not automatically rewritten or corrected.",
+                "â€¢ Conservative checks can withhold weak fragments from readable output.",
+                "â€¢ Raw OCR evidence is preserved, and diagnostics can explain withheld text.",
+                "â€¢ Writing-system mismatches recommend review rather than identifying language.",
             ),
         ),
     )

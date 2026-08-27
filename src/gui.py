@@ -63,6 +63,7 @@ from local_translation_provider import (LocalCTranslate2Provider, LocalTranslati
 from runtime_diagnostics import write_gui_diagnostic
 from translation_application import TranslationApplicationSource, run_translation_job
 from translation_job import TranslationOutputGrouping, TranslationSourceItem
+from translation_output_plan import sanitize_filename_label
 from translation_settings import (
     OPENAI_TRANSLATION_MODEL, RECOMMENDED_OPENAI_MODEL_LABEL,
     TRANSLATION_TARGET_LOCALES, VETTED_OPENAI_TRANSLATION_MODELS,
@@ -1304,6 +1305,7 @@ class VideoTextApp(ttk.Frame):
 
         self.existing_result_paths = []
         self.existing_output_root = tk.StringVar()
+        self.existing_batch_name = tk.StringVar()
         self.existing_provider = tk.StringVar(
             value="local" if self.local_translation_availability.installed_models else "openai"
         )
@@ -1353,6 +1355,16 @@ class VideoTextApp(ttk.Frame):
         output_button = ttk.Button(output_frame, text="Browse...", command=self._browse_existing_output_root)
         output_button.grid(row=0, column=2, padx=(8, 0))
         self.existing_controls.append(output_button)
+        ttk.Label(output_frame, text="Batch Name (optional)").grid(
+            row=1, column=0, sticky="w", padx=(0, 8), pady=(8, 0),
+        )
+        batch_name_entry = ttk.Entry(output_frame, textvariable=self.existing_batch_name)
+        batch_name_entry.grid(row=1, column=1, sticky="ew", pady=(8, 0))
+        ttk.Label(
+            output_frame,
+            text="Used to distinguish generated translation files.",
+        ).grid(row=2, column=1, columnspan=2, sticky="w", pady=(2, 0))
+        self.existing_controls.append(batch_name_entry)
 
         settings = ttk.LabelFrame(dialog, text="Translation Settings", padding=8)
         settings.grid(row=3, column=0, sticky="ew", padx=12, pady=4)
@@ -1561,7 +1573,15 @@ class VideoTextApp(ttk.Frame):
         except ValueError as error:
             self.existing_status.set(str(error))
             return None
-        return provider_name, languages, grouping, formats, model
+        batch_variable = getattr(self, "existing_batch_name", None)
+        batch_name_input = batch_variable.get().strip() if batch_variable is not None else ""
+        batch_name = sanitize_filename_label(batch_name_input)
+        if batch_name_input and batch_name is None:
+            self.existing_status.set(
+                "Batch Name must contain at least one Windows filename-safe character."
+            )
+            return None
+        return provider_name, languages, grouping, formats, model, batch_name
 
     def _set_existing_controls_state(self, state: str) -> None:
         for control in self.existing_controls:
@@ -1637,7 +1657,8 @@ class VideoTextApp(ttk.Frame):
                 self._finish_existing_results_translation()
                 return
 
-        provider_name, languages, grouping, formats, model = settings
+        provider_name, languages, grouping, formats, model, *optional = settings
+        batch_name = optional[0] if optional else None
         api_key = None
         if provider_name == "openai":
             acknowledged = messagebox.askokcancel(
@@ -1663,13 +1684,14 @@ class VideoTextApp(ttk.Frame):
         self.existing_status.set("Translation is running…")
         worker = threading.Thread(
             target=self._run_existing_results_worker,
-            args=(preparation, provider_name, languages, grouping, formats, api_key, model),
+            args=(preparation, provider_name, languages, grouping, formats, api_key, model, batch_name),
             daemon=True,
         )
         worker.start()
 
     def _run_existing_results_worker(
         self, preparation, provider_name, languages, grouping, formats, api_key, model,
+        batch_name=None,
     ) -> None:
         """Construct the chosen provider and delegate to the headless service."""
 
@@ -1699,6 +1721,7 @@ class VideoTextApp(ttk.Frame):
                 progress_callback=lambda current, count: self.message_queue.put(
                     ("existing_results_progress", (current, count))
                 ),
+                batch_name=batch_name,
             )
             self.message_queue.put(("existing_results_complete", (preparation, result)))
         except Exception as error:

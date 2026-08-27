@@ -5,9 +5,12 @@ Data models used throughout the VideoText processing pipeline.
 """
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import TYPE_CHECKING, List
 from enum import Enum
 import numpy as np
+
+if TYPE_CHECKING:
+    from ocr_promotion_assessment import OCRPromotionRecord
 
 
 @dataclass
@@ -299,6 +302,10 @@ class Slide:
     # slide consolidation stage.
     #
     paragraphs: list[TextParagraph] = field(default_factory=list)
+
+    # Derived audit records for canonical paragraph promotion. Raw OCR and
+    # reconstructed frame evidence remain unchanged.
+    promotion_records: list["OCRPromotionRecord"] = field(default_factory=list)
 
     final_text: str = ""
 

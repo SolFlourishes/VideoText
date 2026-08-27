@@ -17,6 +17,12 @@ _LANGUAGE_NAMES = {
     "zh": "Chinese", "ar": "Arabic",
 }
 
+_WINDOWS_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{index}" for index in range(1, 10)),
+    *(f"LPT{index}" for index in range(1, 10)),
+}
+
 
 @dataclass(frozen=True)
 class PlannedSheet:
@@ -66,6 +72,21 @@ def _filename(value: str) -> str:
     base_value = value[:-5] if value.casefold().endswith(".xlsx") else value
     base = _safe(base_value, _WINDOWS_ILLEGAL, "Translation")
     return f"{base}.xlsx"
+
+
+def sanitize_filename_label(value: str | None, maximum: int = 80) -> str | None:
+    """Return a safe optional Windows filename label without inventing one."""
+
+    if value is None or not value.strip():
+        return None
+    cleaned = _WINDOWS_ILLEGAL.sub(" ", value).strip().rstrip(". ")
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    cleaned = cleaned[:maximum].rstrip(". ")
+    if not cleaned:
+        return None
+    if cleaned.casefold().split(".", 1)[0].upper() in _WINDOWS_RESERVED_NAMES:
+        cleaned = f"{cleaned} Translation"
+    return cleaned
 
 
 def _unique_filename(preferred: str, used: set[str]) -> str:
@@ -127,7 +148,11 @@ def plan_translation_output(job: TranslationJob) -> TranslationOutputLayout:
     def add(workbook_id: str, filename_default: str, sheets: list[PlannedSheet]) -> None:
         first = sheets[0]
         item = next(value for value in job.source_items if value.source_item_id == first.source_item_id)
-        filename = _unique_filename(_filename(_render(job.output_plan.filename_template, filename_default, _values(job, item, first.target_language))), used_files)
+        rendered = _render(job.output_plan.filename_template, filename_default, _values(job, item, first.target_language))
+        batch_name = sanitize_filename_label(job.output_plan.batch_name)
+        if batch_name:
+            rendered = f"{batch_name} - {rendered}"
+        filename = _unique_filename(_filename(rendered), used_files)
         workbooks.append(PlannedWorkbook(workbook_id, filename, tuple(sheets),
             tuple(dict.fromkeys(sheet.source_item_id for sheet in sheets)),
             tuple(dict.fromkeys(sheet.target_language for sheet in sheets))))

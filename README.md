@@ -1,6 +1,6 @@
 # VideoText
 
-VideoText 1.7.1 converts presentation and lecture videos into structured,
+VideoText 1.7.2 converts presentation and lecture videos into structured,
 editable OCR text and can optionally create machine-translation review
 artifacts. OCR remains the canonical evidence: translation is downstream,
 never overwrites OCR, and always requires human review.
@@ -42,6 +42,19 @@ not rerun, source result folders remain unchanged, and all new artifacts are
 written beneath a separate translation workspace. Only reuse completed results
 from a trusted source or computer.
 
+Version 1.7.2 distinguishes preserved OCR evidence from text promoted into the
+readable Presentation. Conservative checks withhold weak fragments only when
+multiple observable signals agree, while raw OCR and audit records remain
+available. Short labels, numbers, years, percentages, formulas, and similar
+compact values are conservatively protected. Unicode writing-system mismatch
+can recommend review, but does not identify language or recover the visual
+script when OCR emitted incorrect characters.
+
+Batch Translate Existing Results also has an optional **Batch Name**. A label
+such as `Mod 2` can produce `Mod 2 - Spanish.xlsx` and
+`Mod 2 - Translation.csv`. Blank input preserves previous naming, unsafe
+Windows filename characters are sanitized, and source folders remain unchanged.
+
 ## Supported local locales
 
 The compatible optional Local Translation Pack supports English source text to:
@@ -59,7 +72,7 @@ OpenAI Cloud, not the current local pack.
 
 ## Download and run
 
-Download `VideoText-1.7.1-Windows-Portable.zip` from the GitHub release, extract
+Download `VideoText-1.7.2-Windows-Portable.zip` from the GitHub release, extract
 the entire archive to a user-writable folder, and run `VideoText.exe`. No
 administrator privileges or installer are required.
 
@@ -128,7 +141,12 @@ permission to process and transmit their source content.
 
 OCR is optimized for presentation-style video with stable, readable text and
 can be affected by resolution, motion, occlusion, decorative typography, and
-low contrast. OCR and all machine translations require human review. Local
+low contrast. High-confidence fragment-like or Latin gibberish may remain when
+there is insufficient independent evidence to withhold it. Unicode inspection
+cannot recover the source writing system when OCR emits incorrect Latin text;
+image-level script identification, multilingual OCR selection, chart semantics,
+and a restore-withheld-content GUI are not included. OCR diagnostics and raw
+evidence remain the audit path. OCR and all machine translations require human review. Local
 translation supports only installed approved mappings and does not guarantee
 regional Spanish or Portuguese wording. OpenAI Cloud requires internet access,
 a valid user key, and may incur charges.

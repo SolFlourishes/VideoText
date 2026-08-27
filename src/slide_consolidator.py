@@ -9,6 +9,12 @@ from difflib import SequenceMatcher
 from typing import List
 
 from models import CandidateFrame, Slide, SlideBuild
+from ocr_promotion_assessment import (
+    OCRPromotionContext,
+    OCRPromotionDisposition,
+    OCRPromotionRecord,
+    assess_ocr_promotion,
+)
 
 
 SIMILARITY_THRESHOLD = 0.60
@@ -26,11 +32,13 @@ class ParagraphCluster:
     Collect multiple observations of the same paragraph.
     """
 
-    def __init__(self, paragraph):
+    def __init__(self, paragraph, source_frame=None):
         self.paragraphs = [deepcopy(paragraph)]
+        self.source_frames = [source_frame]
 
-    def add(self, paragraph):
+    def add(self, paragraph, source_frame=None):
         self.paragraphs.append(deepcopy(paragraph))
+        self.source_frames.append(source_frame)
 
     @property
     def best(self):
@@ -66,6 +74,53 @@ class ParagraphCluster:
             for paragraph in self.paragraphs
             if normalize_text(paragraph.text) == selected_text
         )
+
+    @property
+    def best_observation(self):
+        """Return the selected paragraph and its preserved source frame."""
+
+        selected = self.best
+        index = next(
+            index
+            for index, paragraph in enumerate(self.paragraphs)
+            if paragraph is selected
+        )
+        return selected, self.source_frames[index]
+
+
+def _promotion_context(paragraph, frame, observation_count: int):
+    """Build context only from evidence preserved at consolidation time."""
+
+    confidences = [
+        line.confidence
+        for line in getattr(paragraph, "lines", ())
+        if getattr(line, "confidence", None) is not None
+    ]
+    confidence = (
+        sum(confidences) / len(confidences)
+        if confidences
+        else None
+    )
+    bounding_box = None
+    if getattr(paragraph, "lines", None):
+        bounding_box = (
+            paragraph.left,
+            paragraph.top,
+            paragraph.right,
+            paragraph.bottom,
+        )
+    image = None if frame is None else getattr(frame, "image", None)
+    frame_dimensions = None
+    if image is not None and getattr(image, "ndim", 0) >= 2:
+        frame_dimensions = (int(image.shape[1]), int(image.shape[0]))
+    return OCRPromotionContext(
+        confidence=confidence,
+        # Reconstructed paragraphs do not retain an exact source-region count.
+        region_count=None,
+        bounding_box=bounding_box,
+        frame_dimensions=frame_dimensions,
+        observation_count=observation_count,
+    )
 
 
 def _progressive_prefix_endpoint(paragraphs):
@@ -324,13 +379,37 @@ def consolidate_slides(candidate_frames: List[CandidateFrame]) -> List[Slide]:
                     )
 
                     if match is None:
-                        clusters.append(ParagraphCluster(paragraph))
+                        clusters.append(ParagraphCluster(paragraph, frame))
                     else:
-                        clusters[match].add(paragraph)
+                        clusters[match].add(paragraph, frame)
 
         slide.paragraphs.clear()
+        slide.promotion_records.clear()
 
         for cluster in clusters:
-            slide.paragraphs.append(cluster.best)
+            paragraph, source_frame = cluster.best_observation
+            context = _promotion_context(
+                paragraph,
+                source_frame,
+                observation_count=len(cluster.paragraphs),
+            )
+            assessment = assess_ocr_promotion(paragraph.text, context)
+            included = assessment.disposition in {
+                OCRPromotionDisposition.PROMOTED,
+                OCRPromotionDisposition.PROMOTED_REVIEW_RECOMMENDED,
+            }
+            slide.promotion_records.append(OCRPromotionRecord(
+                text=paragraph.text,
+                assessment=assessment,
+                context=context,
+                source_frame_number=(
+                    None
+                    if source_frame is None
+                    else getattr(source_frame, "frame_number", None)
+                ),
+                included_in_presentation=included,
+            ))
+            if included:
+                slide.paragraphs.append(paragraph)
 
     return slides
