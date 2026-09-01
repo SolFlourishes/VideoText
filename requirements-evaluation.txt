@@ -2,4 +2,7 @@
 # These are deliberately excluded from production and packaging requirements.
 rapidocr==3.9.1
 onnxruntime==1.27.0
-psutil==7.2.2
+# Optional visual-model experiments only; never install these in the
+# authoritative Core release-build environment.
+torch==2.13.0
+transformers==4.57.6

@@ -389,6 +389,7 @@ class TranslationGUIWorkflowTests(unittest.TestCase):
                 installed_pairs=(("en", "es-419"), ("en", "nl-NL")),
             ),
             translation_grouping=Variable(TranslationOutputGrouping.BY_LANGUAGE.value),
+            translation_batch_name=Variable(""),
             run_mode=Variable(mode),
             translation_model=Variable("Recommended"),
             _set_status=lambda _message: self.fail("configuration should be valid"),
@@ -431,6 +432,71 @@ class TranslationGUIWorkflowTests(unittest.TestCase):
         configuration = gui.VideoTextApp._translation_configuration(app)
 
         self.assertEqual(TranslationOutputGrouping.BY_LANGUAGE, configuration[2])
+
+    def test_runtime_batch_mode_exposes_optional_translation_batch_name(self):
+        _root, app = self.make_runtime_app()
+
+        app.run_mode.set("batch")
+        app._set_run_mode()
+
+        self.assertEqual("grid", app.translation_batch_name_frame.winfo_manager())
+        self.assertEqual("Batch Name (optional)", app.translation_batch_name_frame.grid_slaves(row=0, column=0)[0].cget("text"))
+        helper_texts = tuple(
+            child.cget("text") for child in app.translation_batch_name_frame.winfo_children()
+            if isinstance(child, ttk.Label)
+        )
+        self.assertIn("Used to distinguish generated translation files.", helper_texts)
+
+    def test_single_mode_clears_and_hides_translation_batch_name(self):
+        root, app = self.make_runtime_app()
+        app.run_mode.set("batch")
+        app._set_run_mode()
+        app.translation_batch_name.set("Mod 2")
+
+        app.run_mode.set("single")
+        app._set_run_mode()
+
+        self.assertEqual("", app.translation_batch_name.get())
+        self.assertEqual("", app.translation_batch_name_frame.winfo_manager())
+        root.update_idletasks()
+
+    def test_blank_batch_name_preserves_none_in_batch_configuration(self):
+        app = self.make_configuration_app(mode="batch")
+        app.translation_batch_name.set("   ")
+
+        configuration = gui.VideoTextApp._translation_configuration(app)
+
+        self.assertIsNone(configuration[6])
+
+    def test_batch_name_uses_shared_sanitizer(self):
+        app = self.make_configuration_app(mode="batch")
+        app.translation_batch_name.set(' Mod<2>:"/\\|?*... ')
+
+        configuration = gui.VideoTextApp._translation_configuration(app)
+
+        self.assertEqual("Mod 2", configuration[6])
+
+    def test_invalid_only_batch_name_prevents_processing(self):
+        statuses = []
+        app = self.make_configuration_app(mode="batch")
+        app.translation_batch_name.set('<>:"/\\|?*... ')
+        app._set_status = statuses.append
+
+        configuration = gui.VideoTextApp._translation_configuration(app)
+
+        self.assertFalse(configuration)
+        self.assertEqual(
+            "Batch Name must contain characters that are valid in a Windows filename.",
+            statuses[-1],
+        )
+
+    def test_single_configuration_never_applies_batch_name(self):
+        app = self.make_configuration_app(mode="single")
+        app.translation_batch_name.set("Mod 2")
+
+        configuration = gui.VideoTextApp._translation_configuration(app)
+
+        self.assertIsNone(configuration[6])
 
     def test_local_availability_is_exact_and_selected_order_is_deterministic(self):
         app = SimpleNamespace(
@@ -566,6 +632,31 @@ class TranslationGUIWorkflowTests(unittest.TestCase):
 
         self.assertEqual("translated", output)
         self.assertEqual(expected_directory, run_job.call_args.args[7])
+        self.assertIsNone(run_job.call_args.kwargs["batch_name"])
+
+    def test_ordinary_batch_name_reaches_translation_job(self):
+        app = object.__new__(gui.VideoTextApp)
+        app.message_queue = queue.Queue()
+        app.local_translation_model_root = Path(tempfile.gettempdir())
+        result = ProcessingResult(
+            Presentation(), Path("output/video-run"), {}, ProcessingMode.FULL_VIDEO,
+            "video.mp4", None, 0, 0.0,
+        )
+        configuration = (
+            "local", ("es-419",), TranslationOutputGrouping.BY_LANGUAGE,
+            ("excel",), None, None, "Mod 2",
+        )
+        with (
+            patch.object(gui, "LocalCTranslate2Provider"),
+            patch.object(gui, "run_translation_job", return_value="translated") as run_job,
+            patch.object(gui, "write_gui_diagnostic"),
+        ):
+            gui.VideoTextApp._translate_completed_results(
+                app, (result,), configuration, Path("output/translations"),
+            )
+
+        self.assertEqual(TranslationOutputGrouping.BY_LANGUAGE, run_job.call_args.args[5])
+        self.assertEqual("Mod 2", run_job.call_args.kwargs["batch_name"])
 
     def test_replay_translation_identity_uses_the_originating_ocr_export(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

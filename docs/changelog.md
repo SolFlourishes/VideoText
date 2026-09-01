@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.8.0 — AI-Assisted Understanding Foundation
+
+### AI-Assisted Understanding Foundation
+
+- Exact-frame visual evidence/provenance, deterministic candidate triage, and
+  provider-neutral contracts for structured relationships, details, and warnings
+- Versioned JSON storage, Markdown reporting, replay-compatible evidence
+  projection, and safe failure/cancellation behavior without replacing OCR
+
+### Local Capability Architecture
+
+- Versioned manifests, no-admin pack discovery, integrity checks,
+  authenticated loopback sidecar transport, strict structured parsing, and an
+  evaluation framework
+- The evaluated local VLM remains development-only: synthetic results were
+  promising, but dense real time-series extraction did not pass the quality gate
+
+### Batch Workflow Improvements
+
+- Optional sanitized Batch Name labels now also apply to normal Batch Processing
+
+### Packaging and Performance
+
+- A true PyInstaller one-folder portable build, isolated development outputs,
+  clean-build guidance, and explicit development/evaluation exclusions
+- On the validation machine, extracted size changed from 1,600,126,597 to
+  742,840,643 bytes and startup from about 31 seconds to roughly 1–2 seconds;
+  these are measured results, not universal guarantees
+
 ## 1.7.2
 
 ### OCR Output Quality & Script Awareness

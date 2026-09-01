@@ -18,6 +18,18 @@ Use cases are included because they represent plausible, concrete applications o
 
 ---
 
+## Visual relationships flattened by OCR
+
+**Status:** Planned / Foundation-supported
+
+VideoText 1.8 preserves exact-frame visual evidence, identifies deterministic
+analysis candidates, and stores provider-neutral observations for future chart
+category/value relationships, timelines and trends, diagram connectors, and
+table structure. Production visual-model interpretation remains deferred and
+is not available to ordinary users in the normal 1.8 GUI.
+
+---
+
 # 1. Extract On-Screen Text from Video
 
 **Status:** Current

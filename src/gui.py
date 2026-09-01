@@ -148,6 +148,7 @@ class VideoTextApp(ttk.Frame):
         self.translation_provider = tk.StringVar(value="")
         self.translation_model = tk.StringVar(value=RECOMMENDED_OPENAI_MODEL_LABEL)
         self.translation_grouping = tk.StringVar(value=TranslationOutputGrouping.BY_SOURCE.value)
+        self.translation_batch_name = tk.StringVar()
         self.translation_languages = {code: tk.BooleanVar(value=False) for code, _label in TRANSLATION_TARGET_LOCALES}
         self.translation_formats = {"excel": tk.BooleanVar(value=True), "csv": tk.BooleanVar(value=False), "markdown": tk.BooleanVar(value=False)}
         # Manifest discovery is deliberately lightweight.  Do not import the
@@ -468,10 +469,29 @@ class VideoTextApp(ttk.Frame):
             self.translation_controls.append(control)
             self.translation_grouping_controls.append(control)
 
+        self.translation_batch_name_frame = ttk.Frame(self.translation_frame)
+        self.translation_batch_name_frame.grid(
+            row=6, column=0, columnspan=3, sticky="ew", pady=(6, 0),
+        )
+        ttk.Label(
+            self.translation_batch_name_frame, text="Batch Name (optional)",
+        ).grid(row=0, column=0, sticky="w", padx=(0, 8))
+        self.translation_batch_name_entry = ttk.Entry(
+            self.translation_batch_name_frame,
+            textvariable=self.translation_batch_name,
+        )
+        self.translation_batch_name_entry.grid(row=0, column=1, sticky="ew")
+        ttk.Label(
+            self.translation_batch_name_frame,
+            text="Used to distinguish generated translation files.",
+        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(2, 0))
+        self.translation_batch_name_frame.columnconfigure(1, weight=1)
+        self.translation_controls.append(self.translation_batch_name_entry)
+
         self.translation_outputs_frame = ttk.LabelFrame(
             self.translation_frame, text="Translation Outputs", padding=6,
         )
-        self.translation_outputs_frame.grid(row=6, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        self.translation_outputs_frame.grid(row=7, column=0, columnspan=3, sticky="w", pady=(6, 0))
         translation_output_labels = {
             "excel": "Translation Review Workbook",
             "csv": "Translation CSV",
@@ -941,9 +961,12 @@ class VideoTextApp(ttk.Frame):
             self.translation_grouping.set(TranslationOutputGrouping.BY_SOURCE.value)
             self.translation_grouping_frame.grid_remove()
             self.single_translation_grouping_label.grid()
+            self.translation_batch_name.set("")
+            self.translation_batch_name_frame.grid_remove()
         else:
             self.single_translation_grouping_label.grid_remove()
             self.translation_grouping_frame.grid()
+            self.translation_batch_name_frame.grid()
 
     def _translation_configuration(self):
         """Collect explicit, session-only cloud choices without constructing a provider."""
@@ -964,13 +987,20 @@ class VideoTextApp(ttk.Frame):
         if not formats:
             self._set_status("Select at least one translation output format.")
             return False
+        batch_name = None
+        if self.run_mode.get() == "batch":
+            batch_name_input = self.translation_batch_name.get().strip()
+            batch_name = sanitize_filename_label(batch_name_input)
+            if batch_name_input and batch_name is None:
+                self._set_status("Batch Name must contain characters that are valid in a Windows filename.")
+                return False
         if provider_name == "local":
             grouping = (
                 TranslationOutputGrouping.BY_SOURCE
                 if self.run_mode.get() == "single"
                 else TranslationOutputGrouping(self.translation_grouping.get())
             )
-            return ("local", languages, grouping, formats, None, None)
+            return ("local", languages, grouping, formats, None, None, batch_name)
         try:
             model = resolve_vetted_openai_model(self.translation_model.get())
         except ValueError as error:
@@ -994,7 +1024,7 @@ class VideoTextApp(ttk.Frame):
             if self.run_mode.get() == "single"
             else TranslationOutputGrouping(self.translation_grouping.get())
         )
-        return ("openai", languages, grouping, formats, api_key.strip(), model)
+        return ("openai", languages, grouping, formats, api_key.strip(), model, batch_name)
 
     def _remember_recent_source(self, source: str) -> None:
         preferences = getattr(self, "preferences", None)
@@ -1878,7 +1908,8 @@ class VideoTextApp(ttk.Frame):
         """Invoke optional translation only after OCR processing and consent."""
         if configuration is None:
             return None
-        provider_name, languages, grouping, formats, api_key, model = configuration
+        provider_name, languages, grouping, formats, api_key, model, *optional = configuration
+        batch_name = optional[0] if optional else None
         if provider_name == "local":
             # Constructing the provider does not load its model.  The first
             # model load happens inside translation, after OCR has returned.
@@ -1907,6 +1938,7 @@ class VideoTextApp(ttk.Frame):
         return run_translation_job(job_id, sources, "en", languages, provider, grouping,
             formats, output_directory,
             progress_callback=lambda current, total: self.message_queue.put(("translation_progress", (current, total))),
+            batch_name=batch_name,
         )
 
     def _run_batch_worker(self, request: BatchProcessingRequest, translation_configuration=None) -> None:

@@ -2,6 +2,7 @@
 """PyInstaller configuration for the windowed VideoText desktop application."""
 
 from pathlib import Path
+import os
 import sys
 
 from PyInstaller.utils.hooks import (
@@ -19,10 +20,19 @@ ICON_FILE = PROJECT_ROOT / "icons" / "VT-icon.ico"
 sys.path.insert(0, str(SOURCE_DIRECTORY))
 sys.path.insert(0, str(PACKAGING_DIRECTORY))
 
-from version_info import write_version_file
+from version_info import (
+    BUILD_NAME_ENVIRONMENT_VARIABLE,
+    DEFAULT_BUILD_NAME,
+    validate_build_name,
+    write_version_file,
+)
 
 
-VERSION_FILE = PACKAGING_DIRECTORY / "VideoText_version.txt"
+BUILD_NAME = validate_build_name(
+    os.environ.get(BUILD_NAME_ENVIRONMENT_VARIABLE, DEFAULT_BUILD_NAME)
+)
+VERSION_FILE = PROJECT_ROOT / "build" / BUILD_NAME / f"{BUILD_NAME}_version.txt"
+VERSION_FILE.parent.mkdir(parents=True, exist_ok=True)
 write_version_file(VERSION_FILE)
 
 # Processing-service imports these modules lazily to keep GUI startup light.
@@ -55,6 +65,28 @@ RUNTIME_MODULES = [
     "text_reconstruction",
     "video_reader",
     "video_source",
+    # Provider-neutral 1.8 visual-understanding architecture. Local model
+    # runtimes, model weights, and evaluation tools remain external.
+    "visual_candidate_detection",
+    "visual_capability_pack",
+    "visual_evidence",
+    "visual_understanding_contract",
+    "visual_understanding_export",
+    "visual_understanding_pipeline",
+    "visual_understanding_store",
+]
+
+# These packages are development/evaluation tools, not VideoText Core runtime
+# dependencies. Explicit exclusions keep an otherwise broad developer
+# environment from changing the production artifact accidentally.
+PRODUCTION_EXCLUDES = [
+    "onnxruntime",
+    "pytest",
+    "rapidocr",
+    "torch",
+    "torchaudio",
+    "torchvision",
+    "transformers",
 ]
 
 # PaddleOCR and Paddle load submodules and native libraries dynamically.
@@ -112,19 +144,33 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=PRODUCTION_EXCLUDES,
     noarchive=False,
 )
+
+# Some third-party hooks copy optional dependency metadata even when the
+# corresponding module is excluded. Remove only root-level metadata belonging
+# to the explicitly excluded distributions; do not pattern-match nested Paddle
+# resources such as its own ``compat/torch`` headers.
+EXCLUDED_METADATA_PREFIXES = tuple(
+    f"{distribution}-" for distribution in PRODUCTION_EXCLUDES
+)
+a.datas = [
+    item
+    for item in a.datas
+    if not (
+        item[0].split("\\", 1)[0].lower().startswith(EXCLUDED_METADATA_PREFIXES)
+        and item[0].split("\\", 1)[0].lower().endswith((".dist-info", ".egg-info"))
+    )
+]
 pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
-    name="VideoText",
+    exclude_binaries=True,
+    name=BUILD_NAME,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -141,5 +187,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=True,
-    name="VideoText",
+    name=BUILD_NAME,
 )

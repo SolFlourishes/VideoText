@@ -2,7 +2,7 @@
 
 **Project:** VideoText
 
-**Current Release:** Version 1.7.2
+**Current Release:** Version 1.8.0
 
 ---
 
@@ -74,7 +74,7 @@ Every processing stage adds information rather than replacing previous work.
 
 ---
 
-# Current Capabilities (Version 1.7.2)
+# Current Capabilities (Version 1.8.0)
 
 ## OCR
 
@@ -245,20 +245,28 @@ AI-Assisted Understanding
 
 Use AI to enrich OCR evidence without replacing deterministic OCR.
 
-### Planned Features
+### Foundation Delivered
 
-- Vision providers
-- Local vision models
-- Cloud vision models
-- Diagram understanding
-- Figure descriptions
-- Equation recognition
-- Structured slide understanding
-- Accessibility annotations
-- Optional AI summaries
-- Image-level script identification
-- Vision-assisted chart and diagram relationship interpretation
-- Multilingual OCR/source-language assistance where validated
+- Exact-frame evidence provenance and deterministic candidate triage
+- Provider-neutral contracts, versioned JSON storage, Markdown reporting, and replay
+- Capability-pack manifests, discovery, integrity checks, and local sidecar architecture
+- Evaluation tooling with production quality gates
+
+### Production Visual Understanding — Future
+
+- Further local model/runtime evaluation, especially dense charts and time series
+- Provider integration only after real-case quality gates, including an optional cloud provider through the same neutral architecture
+- Human review later; chart, timeline, table, and diagram relationships remain planned until validated
+
+### Modular Distribution & Capability Packs — Future
+
+- Preserve portable/no-admin Core and optional Translation, Visual Understanding, OCR, and language packs
+- Persist models across Core upgrades and load heavyweight runtimes only when used
+- A future installed edition may coexist with portable; it must not replace the portable option
+
+### Deferred Packaging Optimization
+
+- Paddle/PaddleX narrowing, OpenCV consolidation, lazy export imports, and Translation/OCR runtime modularization
 
 ### Out of Scope
 

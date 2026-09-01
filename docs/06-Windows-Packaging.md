@@ -3,18 +3,53 @@
 This is a developer diagnostic build, not an end-user installer. Build on
 Windows with the same Python environment used for VideoText development.
 
-Install runtime dependencies and the separate build dependency:
+Create a clean, user-owned release environment and install only runtime and
+build dependencies. This environment is authoritative for release artifacts;
+the normal developer environment may also contain test/evaluation packages.
 
-    python -m pip install -r requirements.txt
-    python -m pip install -r requirements-packaging.txt
+    py -3.12 -m venv .venv-release
+    .venv-release\Scripts\python.exe -m pip install --upgrade pip
+    .venv-release\Scripts\python.exe -m pip install -r requirements.txt -r requirements-packaging.txt
+    .venv-release\Scripts\python.exe -m pip check
 
 Build the windowed GUI executable from the repository root:
 
-    ./build_windows.ps1 -Clean
+    ./build_windows.ps1 -Clean -PythonExecutable .venv-release\Scripts\python.exe
 
 The expected result is dist/VideoText/VideoText.exe. Launch that executable
 manually and collect build/VideoText/warn-VideoText.txt if PyInstaller reports
 missing modules or DLLs.
+
+The default build identity remains `VideoText`, including the final portable
+layout `VideoText/VideoText.exe` and `VideoText/_internal/`. To keep a released
+build runnable while testing a later development version, use a distinct,
+Windows-safe identity:
+
+    ./build_windows.ps1 -Clean -BuildName VideoText-1.8-dev
+
+That command uses `build/VideoText-1.8-dev` and
+`dist/VideoText-1.8-dev/VideoText-1.8-dev.exe`. Clean-up is limited to those
+development paths. Build names must start with a letter or number and may
+contain only letters, numbers, periods, underscores, and hyphens.
+
+The portable build is a true PyInstaller one-folder application: the small
+launcher executable does not contain a second copy of the binary/data payload;
+that payload lives under `_internal`. A standalone one-file executable is not
+part of the Core portable build. If one is required later, it must be produced
+by a separate spec/build step and must never be collected into this folder.
+
+Dependency groups are intentionally separate: `requirements.txt` is runtime,
+`requirements-packaging.txt` is build-only, `requirements-dev.txt` is test
+tooling, and `requirements-evaluation.txt` is isolated OCR/visual evaluation.
+Torch, Transformers, RapidOCR, ONNX Runtime, and pytest are excluded
+from Core packaging even if they happen to be installed in a developer venv.
+`psutil` remains a Core runtime dependency because PaddleX imports it while
+initializing the OCR pipeline.
+
+Production and development builds currently share per-user preferences and
+workflow logs, as well as the intentionally shared OCR and local-translation
+model stores. The preference/log namespace should be revisited only if a later
+development version introduces an incompatible preference schema.
 
 The initial build collects PaddleOCR/Paddle package resources and native
 libraries, but does not bundle OCR model weights. PaddleOCR 3.x may download
@@ -23,6 +58,18 @@ cache are available. Offline OCR is therefore a remaining beta blocker.
 
 Do not package tests, documentation, sample videos, output workspaces, caches,
 or developer tools.
+
+For 1.8, the portable folder is the primary release artifact and must remain
+no-admin. Optional Local Translation and future Visual Understanding/OCR/
+language capability packs remain external so models can persist across Core
+upgrades and heavyweight runtimes load only when used. A standalone one-file
+build is not produced unless deliberately built through a separate spec/step.
+
+Final release validation includes the full suite, compileall, diff checking,
+packaging preflight, `pip check`, a clean production-name build, startup and
+network observation, OCR and exports, reading-order replay, local translation,
+automated batch workflows, and a copied-folder portability launch. Do not
+record batch GUI variants as manually tested unless they were actually driven.
 
 ## Task 29B Diagnostic Validation (2026-07-28)
 
