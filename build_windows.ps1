@@ -1,14 +1,37 @@
 [CmdletBinding()]
 param(
-    [switch]$Clean
+    [switch]$Clean,
+    [string]$BuildName = "VideoText",
+    [string]$PythonExecutable = ""
 )
 
 $ErrorActionPreference = "Stop"
 
 $repositoryRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location -LiteralPath $repositoryRoot
-$venvPython = Join-Path $repositoryRoot ".venv\Scripts\python.exe"
+$venvPython = if ($PythonExecutable) {
+    $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PythonExecutable)
+} else {
+    Join-Path $repositoryRoot ".venv\Scripts\python.exe"
+}
 $specificationPath = Join-Path $repositoryRoot "VideoText.spec"
+
+$reservedBuildNames = @("CON", "PRN", "AUX", "NUL") +
+    (1..9 | ForEach-Object { "COM$_" }) +
+    (1..9 | ForEach-Object { "LPT$_" })
+$buildNameBase = ($BuildName -split '\.', 2)[0].ToUpperInvariant()
+if (
+    $BuildName -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$' -or
+    $BuildName.EndsWith('.') -or
+    $buildNameBase -in $reservedBuildNames
+) {
+    throw "BuildName must start with a letter or number and contain only letters, numbers, periods, underscores, or hyphens (80 characters maximum)."
+}
+
+$buildDirectory = Join-Path $repositoryRoot ("build\" + $BuildName)
+$distributionDirectory = Join-Path $repositoryRoot ("dist\" + $BuildName)
+$topLevelExecutable = Join-Path $repositoryRoot ("dist\" + $BuildName + ".exe")
+$collectedExecutable = Join-Path $distributionDirectory ($BuildName + ".exe")
 
 if (-not (Test-Path -LiteralPath $venvPython)) {
     throw "Project virtual environment was not found: $venvPython. Create .venv and install requirements before building."
@@ -48,8 +71,9 @@ try {
 
 if ($Clean) {
     foreach ($target in @(
-        (Join-Path $repositoryRoot "build/VideoText"),
-        (Join-Path $repositoryRoot "dist/VideoText")
+        $buildDirectory,
+        $distributionDirectory,
+        $topLevelExecutable
     )) {
         if (Test-Path -LiteralPath $target) {
             Remove-Item -LiteralPath $target -Recurse -Force
@@ -62,15 +86,24 @@ if ($Clean) {
 # initialization, so disable only that build-time check.  Runtime OCR remains
 # unchanged and still reports genuine model availability errors.
 $env:PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK = "True"
-& $venvPython -m PyInstaller --noconfirm $specificationPath
-if ($LASTEXITCODE -ne 0) {
-    throw "PyInstaller build failed. Review build/VideoText/warn-VideoText.txt."
+$previousBuildName = $env:VIDEOTEXT_BUILD_NAME
+try {
+    $env:VIDEOTEXT_BUILD_NAME = $BuildName
+    & $venvPython -m PyInstaller --noconfirm `
+        --workpath $buildDirectory `
+        --distpath (Join-Path $repositoryRoot "dist") `
+        $specificationPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "PyInstaller build failed. Review $buildDirectory\warn-$BuildName.txt."
+    }
+} finally {
+    $env:VIDEOTEXT_BUILD_NAME = $previousBuildName
 }
 
-$executablePath = Join-Path $repositoryRoot "dist/VideoText/VideoText.exe"
-if (-not (Test-Path -LiteralPath $executablePath)) {
-    throw "Build completed without the expected executable: $executablePath"
+if (-not (Test-Path -LiteralPath $collectedExecutable)) {
+    throw "Build completed without the expected executable: $collectedExecutable"
 }
 
 Write-Host "Build complete."
-Write-Host "Executable: $executablePath"
+Write-Host "Build identity: $BuildName"
+Write-Host "Executable: $collectedExecutable"

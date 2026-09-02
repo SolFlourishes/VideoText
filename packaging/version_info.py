@@ -1,6 +1,7 @@
 """Generate Windows executable version metadata from VideoText app_info."""
 
 from pathlib import Path
+import re
 import sys
 
 
@@ -10,6 +11,33 @@ if str(SOURCE_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SOURCE_DIRECTORY))
 
 from app_info import APP_COPYRIGHT, APP_NAME, APP_RELEASE, APP_STATUS
+
+
+DEFAULT_BUILD_NAME = "VideoText"
+BUILD_NAME_ENVIRONMENT_VARIABLE = "VIDEOTEXT_BUILD_NAME"
+_SAFE_BUILD_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}\Z")
+_WINDOWS_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{index}" for index in range(1, 10)),
+    *(f"LPT{index}" for index in range(1, 10)),
+}
+
+
+def validate_build_name(value: str) -> str:
+    """Return a safe PyInstaller identity or reject unsafe path-like input."""
+
+    reserved_base = value.split(".", 1)[0].upper() if isinstance(value, str) else ""
+    if (
+        not isinstance(value, str)
+        or not _SAFE_BUILD_NAME.fullmatch(value)
+        or value.endswith(".")
+        or reserved_base in _WINDOWS_RESERVED_NAMES
+    ):
+        raise ValueError(
+            "Build name must start with a letter or number and contain only "
+            "letters, numbers, periods, underscores, or hyphens (80 characters maximum)."
+        )
+    return value
 
 
 def windows_version_tuple(release: str = APP_RELEASE) -> tuple[int, int, int, int]:

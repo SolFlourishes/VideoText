@@ -1,6 +1,6 @@
 # VideoText
 
-VideoText 1.7.2 converts presentation and lecture videos into structured,
+VideoText 1.8.0 converts presentation and lecture videos into structured,
 editable OCR text and can optionally create machine-translation review
 artifacts. OCR remains the canonical evidence: translation is downstream,
 never overwrites OCR, and always requires human review.
@@ -50,7 +50,7 @@ compact values are conservatively protected. Unicode writing-system mismatch
 can recommend review, but does not identify language or recover the visual
 script when OCR emitted incorrect characters.
 
-Batch Translate Existing Results also has an optional **Batch Name**. A label
+Normal Batch Processing and Batch Translate Existing Results support an optional **Batch Name**. A label
 such as `Mod 2` can produce `Mod 2 - Spanish.xlsx` and
 `Mod 2 - Translation.csv`. Blank input preserves previous naming, unsafe
 Windows filename characters are sanitized, and source folders remain unchanged.
@@ -70,9 +70,25 @@ VideoText preserves the requested locale in provenance but does not guarantee
 regional lexical localization. Canadian English (`en-CA`) is available through
 OpenAI Cloud, not the current local pack.
 
+## AI-Assisted Understanding foundation
+
+Version 1.8 adds exact-frame evidence provenance, deterministic candidate
+analysis, provider-neutral structured contracts, versioned JSON storage,
+Markdown reporting, replay support, and optional capability-pack discovery for
+visual information that OCR can flatten. AI interpretation is a separate
+evidence layer and never replaces source frames or OCR.
+
+The evaluated local visual model did not meet the dense real-chart quality
+gate. VideoText 1.8 therefore does not expose a production visual provider in
+the normal GUI, and no Qwen weights, projector, or llama.cpp runtime is bundled.
+
+The true one-folder portable build measured about 743 MB and roughly 1–2 second
+startup on the validation machine, versus 1.60 GB and about 31 seconds before;
+results vary by computer.
+
 ## Download and run
 
-Download `VideoText-1.7.2-Windows-Portable.zip` from the GitHub release, extract
+Download `VideoText-1.8.0-Windows-Portable.zip` from the GitHub release, extract
 the entire archive to a user-writable folder, and run `VideoText.exe`. No
 administrator privileges or installer are required.
 
