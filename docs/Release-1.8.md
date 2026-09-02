@@ -59,3 +59,10 @@ review, replay, and batch workflows remain supported.
 The evaluated local visual model did not meet the dense real-chart quality
 gate. Production visual interpretation is not enabled in the normal GUI, and
 visual models/runtimes are not bundled with VideoText Core.
+
+## Release Artifact
+
+- File: `VideoText-1.8.0-Windows-Portable.zip`
+- Size: `276,528,997 bytes` (~263.7 MiB)
+- SHA-256: `F007FEEBCDD28BD2CA67C50342656FBA7B2B8E03896CCAA98C4F8B4CE308B1B9`
+- Git tag: `v1.8.0`
